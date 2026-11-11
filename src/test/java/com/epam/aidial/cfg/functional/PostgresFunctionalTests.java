@@ -1,0 +1,207 @@
+package com.epam.aidial.cfg.functional;
+
+import com.epam.aidial.cfg.functional.config.PostgresFunctionalTestConfiguration;
+import com.epam.aidial.cfg.functional.tests.AdapterFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.AddonFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.AdminSettingsFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.ApplicationFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.ApplicationTypeSchemaFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.AssistantFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.AssistantsPropertyFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.ConfigTransferFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.CoreConfigAutoImportOnBootstrapFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.InterceptorFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.InterceptorRunnerFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.KeyFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.ModelFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.RolesFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.RouteFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.ToolSetFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.ActivityAuditFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.AdapterHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.AddonHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.ApplicationHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.ApplicationTypeSchemaHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.AssistantHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.AssistantsPropertyHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.AssociationsManyToManyHistoryFunctionalTests;
+import com.epam.aidial.cfg.functional.tests.history.AssociationsOneToManyHistoryFunctionalTests;
+import com.epam.aidial.cfg.functional.tests.history.AssociationsOneToOneHistoryFunctionalTests;
+import com.epam.aidial.cfg.functional.tests.history.GeneralHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.InterceptorHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.InterceptorRunnerHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.KeyHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.ModelHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.RolesHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.RouteHistoryFunctionalTest;
+import com.epam.aidial.cfg.functional.tests.history.ToolSetHistoryFunctionalTest;
+import org.junit.jupiter.api.Nested;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.Map;
+
+@DataJpaTest
+@TestPropertySource(properties = {
+        "datasource.vendor=POSTGRES",
+        "spring.datasource.hikari.allow-pool-suspension=true",
+        "spring.datasource.hikari.minimum-idle=0",
+        "spring.datasource.hikari.validation-timeout=3000",
+        })
+@Import(PostgresFunctionalTestConfiguration.class)
+@Testcontainers
+public class PostgresFunctionalTests extends FunctionalTestSuite {
+
+    @Container
+    @ServiceConnection
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17.4")
+            // Data live in RAM, not on disk
+            .withTmpFs(Map.of("/var/lib/postgresql/data", "rw"))
+            // Disable sync with disc for maximum speed
+            .withCommand("postgres", "-c", "fsync=off", "-c", "full_page_writes=off");
+
+    public static PostgreSQLContainer<?> getContainer() {
+        return POSTGRES;
+    }
+
+    @Nested
+    class AddonTests extends AddonFunctionalTest {
+    }
+
+    @Nested
+    class ApplicationTests extends ApplicationFunctionalTest {
+    }
+
+    @Nested
+    class ApplicationTypeSchemaTests extends ApplicationTypeSchemaFunctionalTest {
+    }
+
+    @Nested
+    class AssistantTests extends AssistantFunctionalTest {
+    }
+
+    @Nested
+    class AssistantsPropertyTests extends AssistantsPropertyFunctionalTest {
+    }
+
+    @Nested
+    class ConfigTransferTests extends ConfigTransferFunctionalTest {
+    }
+
+    @Nested
+    class CoreConfigAutoImportOnBootstrapTests extends CoreConfigAutoImportOnBootstrapFunctionalTest {
+    }
+
+    @Nested
+    class InterceptorTests extends InterceptorFunctionalTest {
+    }
+
+    @Nested
+    class InterceptorRunnerTests extends InterceptorRunnerFunctionalTest {
+    }
+
+    @Nested
+    class KeyTests extends KeyFunctionalTest {
+    }
+
+    @Nested
+    class ModelTests extends ModelFunctionalTest {
+    }
+
+    @Nested
+    class RolesTests extends RolesFunctionalTest {
+    }
+
+    @Nested
+    class RouteTests extends RouteFunctionalTest {
+    }
+
+    @Nested
+    class AdapterTest extends AdapterFunctionalTest {
+    }
+
+    @Nested
+    class ToolSetTests extends ToolSetFunctionalTest {
+    }
+
+    @Nested
+    class AdminSettingsTests extends AdminSettingsFunctionalTest {
+    }
+
+    @Nested
+    class AddonHistoryTests extends AddonHistoryFunctionalTest {
+    }
+
+    @Nested
+    class ApplicationHistoryTests extends ApplicationHistoryFunctionalTest {
+    }
+
+    @Nested
+    class ApplicationTypeSchemaHistoryTests extends ApplicationTypeSchemaHistoryFunctionalTest {
+    }
+
+    @Nested
+    class AssistantHistoryTests extends AssistantHistoryFunctionalTest {
+    }
+
+    @Nested
+    class AssistantsPropertyHistoryTests extends AssistantsPropertyHistoryFunctionalTest {
+    }
+
+    @Nested
+    class InterceptorHistoryTests extends InterceptorHistoryFunctionalTest {
+    }
+
+    @Nested
+    class InterceptorRunnerHistoryTests extends InterceptorRunnerHistoryFunctionalTest {
+    }
+
+    @Nested
+    class KeyHistoryTests extends KeyHistoryFunctionalTest {
+    }
+
+    @Nested
+    class ModelHistoryTests extends ModelHistoryFunctionalTest {
+    }
+
+    @Nested
+    class RolesHistoryTests extends RolesHistoryFunctionalTest {
+    }
+
+    @Nested
+    class RouteHistoryTest extends RouteHistoryFunctionalTest {
+    }
+
+    @Nested
+    class ActivityAuditTest extends ActivityAuditFunctionalTest {
+    }
+
+    @Nested
+    class AdapterHistoryTest extends AdapterHistoryFunctionalTest {
+    }
+
+    @Nested
+    class ToolSetHistoryTests extends ToolSetHistoryFunctionalTest {
+    }
+
+    @Nested
+    class GeneralHistoryTests extends GeneralHistoryFunctionalTest {
+    }
+
+    @Nested
+    class AssociationsManyToManyHistoryTests extends AssociationsManyToManyHistoryFunctionalTests {
+    }
+
+    @Nested
+    class AssociationsOneToManyHistoryTests extends AssociationsOneToManyHistoryFunctionalTests {
+    }
+
+    @Nested
+    class AssociationsOneToOneHistoryTests extends AssociationsOneToOneHistoryFunctionalTests {
+    }
+}

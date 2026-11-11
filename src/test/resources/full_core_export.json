@@ -1,0 +1,578 @@
+{
+  "routes": {
+    "test_route1": {
+      "name": "test_route1",
+      "response": {
+        "status": 200,
+        "body": "OK"
+      },
+      "rewritePath": true,
+      "paths": [
+        "/api/v1/",
+        "/service/"
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "upstreams": [
+        {
+          "endpoint": "http://upstream1.example.com",
+          "extraData": {
+            "custom": "data1"
+          },
+          "weight": 1,
+          "tier": 0,
+          "authType": {
+            "type": "custom_header",
+            "headerName": "X-Api-Token"
+          }
+        },
+        {
+          "endpoint": "http://upstream2.example.com",
+          "extraData": {
+            "custom": "data2"
+          },
+          "weight": 2,
+          "tier": 1,
+          "authType": "bearer"
+        }
+      ],
+      "maxRetryAttempts": 3,
+      "order": 2147483647,
+      "permissions": [],
+      "attachmentPaths": {
+        "requestBody": [],
+        "responseBody": []
+      }
+    },
+    "test_route2": {
+      "name": "test_route2",
+      "userRoles": [
+        "testRole1"
+      ],
+      "response": {
+        "status": 200,
+        "body": "OK"
+      },
+      "rewritePath": true,
+      "paths": [
+        "/api/v1/",
+        "/service/"
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "upstreams": [
+        {
+          "endpoint": "http://upstream1.example.com",
+          "extraData": {
+            "custom": "data1"
+          },
+          "weight": 1,
+          "tier": 0,
+          "authType": "bearer"
+        },
+        {
+          "endpoint": "http://upstream2.example.com",
+          "extraData": {
+            "custom": "data2"
+          },
+          "weight": 2,
+          "tier": 1,
+          "authType": "api_key"
+        }
+      ],
+      "maxRetryAttempts": 3,
+      "order": 2147483647,
+      "permissions": [],
+      "attachmentPaths": {
+        "requestBody": [],
+        "responseBody": []
+      }
+    }
+  },
+  "models": {
+    "testModel1": {
+      "name": "testModel1",
+      "endpoint": "https://endpoint1/embeddings",
+      "responsesEndpoint": "https://endpoint1/responses",
+      "displayName": "Test Model1",
+      "displayVersion": "2.0.0",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responsesDefaults": {
+        "field": "skipped-value"
+      },
+      "interfaces": {
+        "openaiChatCompletions": {
+          "base_url": "https://model.adapter.test.com"
+        },
+        "openaiResponses": {
+          "features": {
+            "system_prompt_supported": true,
+            "tools_supported": false,
+            "seed_supported": false,
+            "url_attachments_supported": false,
+            "folder_attachments_supported": false,
+            "allow_resume": true,
+            "accessible_by_per_request_key": true,
+            "content_parts_supported": false,
+            "temperature_supported": true,
+            "parallel_tool_calls_supported": true,
+            "assistant_attachments_in_request_supported": false,
+            "max_tokens_supported": true,
+            "custom_temperature_supported": true,
+            "reasoning_efforts": [],
+            "skills_supported": false
+          },
+          "base_url": "https://model.adapter.test.com"
+        },
+        "anthropicMessages": {
+          "features": {
+            "rate_endpoint": "https://model.adapter.test.com/rate",
+            "system_prompt_supported": true,
+            "tools_supported": true,
+            "seed_supported": false,
+            "url_attachments_supported": false,
+            "folder_attachments_supported": false,
+            "allow_resume": true,
+            "accessible_by_per_request_key": true,
+            "content_parts_supported": false,
+            "temperature_supported": true,
+            "parallel_tool_calls_supported": true,
+            "assistant_attachments_in_request_supported": false,
+            "max_tokens_supported": true,
+            "custom_temperature_supported": true,
+            "reasoning_efforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+
+            ],
+            "skills_supported": false
+          },
+          "overridePaths": {
+            "createMessage": "/v1/{overrideName}/messages",
+            "getMessage": "/v1/{overrideName}/messages/{id}"
+          },
+          "base_url": "https://model.adapter.test.com"
+        }
+      },
+      "interceptors": [
+        "testInterceptor1"
+      ],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 5,
+      "author": "test-author",
+      "createdAt": 123,
+      "updatedAt": 123,
+      "dependencies": [
+        "dep1",
+        "dep2"
+      ],
+      "type": "embedding",
+      "upstreams": [],
+      "fieldsHashingOrder": [
+        "prompt",
+        "temperature",
+        "seed",
+        "system"
+      ]
+    },
+    "testModel2": {
+      "name": "testModel2",
+      "userRoles": [
+        "testRole1"
+      ],
+      "endpoint": "https://endpoint1/embeddings",
+      "displayName": "Test Model2",
+      "displayVersion": "1.0.0",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responsesDefaults": {},
+      "interceptors": [],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 5,
+      "createdAt": 123,
+      "updatedAt": 123,
+      "dependencies": [],
+      "type": "embedding",
+      "upstreams": [],
+      "fieldsHashingOrder": [
+        "prefix.body.tools",
+        "prefix.body.messages"
+      ]
+    }
+  },
+  "addons": {},
+  "applications": {
+    "testApplication1": {
+      "name": "testApplication1",
+      "display_name": "Test Application1",
+      "display_version": "2.0.0",
+      "forward_auth_token": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responses_defaults": {},
+      "interceptors": [
+        "testInterceptor1"
+      ],
+      "description_keywords": [],
+      "max_retry_attempts": 1,
+      "author": "test-author",
+      "created_at": 123,
+      "updated_at": 123,
+      "dependencies": [
+        "dep1",
+        "dep2"
+      ],
+      "application_type_schema_id": "https://test-schema-id.example"
+    },
+    "testApplication2": {
+      "name": "testApplication2",
+      "user_roles": [
+        "testRole1"
+      ],
+      "endpoint": "endpoint",
+      "responses_endpoint": "https://application2/responses",
+      "display_name": "Test Application2",
+      "display_version": "1.0.0",
+      "forward_auth_token": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responses_defaults": {
+        "field": "skipped-value"
+      },
+      "interfaces": {
+        "openaiChatCompletions": {
+          "features": {
+            "system_prompt_supported": true,
+            "tools_supported": true,
+            "seed_supported": false,
+            "url_attachments_supported": false,
+            "folder_attachments_supported": false,
+            "allow_resume": true,
+            "accessible_by_per_request_key": true,
+            "content_parts_supported": true,
+            "temperature_supported": true,
+            "parallel_tool_calls_supported": true,
+            "assistant_attachments_in_request_supported": false,
+            "max_tokens_supported": true,
+            "custom_temperature_supported": true,
+            "reasoning_efforts": [],
+            "skills_supported": false
+          },
+          "overridePaths": {
+            "createChatCompletion": "/v1/{overrideName}/chat/completions"
+          },
+          "base_url": "https://app.adapter.test.com"
+        }
+      },
+      "interceptors": [],
+      "description_keywords": [],
+      "max_retry_attempts": 1,
+      "created_at": 123,
+      "updated_at": 123,
+      "dependencies": [],
+      "mcp": {
+        "endpoint": "http://localhost:9876/mcp",
+        "transport": "http",
+        "allowedTools": ["classify_text"],
+        "configDelivery": "header",
+        "forwardPerRequestKey": false
+      },
+      "external_services": {
+        "service1": {
+          "display_name": "Test External Service",
+          "description": "External service description",
+          "auth_settings": {
+            "authentication_type": "api_key",
+            "client_id": "external-client-id",
+            "token_endpoint": "https://auth.test.com/token",
+            "api_key_header": "X-Api-Key",
+            "token_endpoint_auth_method": "CLIENT_SECRET_BASIC"
+          }
+        }
+      }
+    }
+  },
+  "toolsets": {
+    "toolset1": {
+      "name": "toolset1",
+      "user_roles": [],
+      "endpoint": "http://sample-endpoint/api",
+      "display_name": "ToolSet1",
+      "forward_auth_token": true,
+      "defaults": {},
+      "responses_defaults": {},
+      "interceptors": [],
+      "description_keywords": [],
+      "max_retry_attempts": 1,
+      "created_at": 123,
+      "updated_at": 123,
+      "dependencies": [],
+      "forward_per_request_key": false,
+      "auth_settings": {
+        "authentication_type": "oauth",
+        "client_id": "some-client-id",
+        "authorization_endpoint": "some-auth-endpoint",
+        "token_endpoint": "some-token-endpoint",
+        "token_endpoint_auth_method": "CLIENT_SECRET_POST",
+        "dynamically_registered": true
+      },
+      "transport": "sse",
+      "allowed_tools": [
+        "branch",
+        "remote"
+      ],
+      "provider": "some-provider",
+      "vendor_website": "https://www.vendorWebsite.com"
+    }
+  },
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {},
+  "roles": {
+    "default": {
+      "name": "default",
+      "limits": {
+        "testApplication1": {},
+        "testApplication2": {},
+        "testModel2": {},
+        "testModel1": {
+          "day": 3
+        }
+      },
+      "share": {}
+    },
+    "testRole1": {
+      "name": "testRole1",
+      "limits": {
+        "testApplication1": {},
+        "testApplication2": {},
+        "testModel2": {},
+        "testModel1": {
+          "day": 1
+        }
+      },
+      "costLimit": {
+        "minute": 111,
+        "day": 222,
+        "week": 333
+      },
+      "share": {
+        "APPLICATION": {
+          "max_accepted_users": 10,
+          "invitation_ttl": 120
+        }
+      }
+    }
+  },
+  "retriableErrorCodes": [],
+  "interceptors": {
+    "testInterceptor1": {
+      "name": "testInterceptor1",
+      "endpoint": "https://endpoint.test.com/interceptor",
+      "responsesEndpoint": "https://testInterceptor1/responses",
+      "displayName": "Test Interceptor1",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responsesDefaults": {},
+      "interfaces": {
+        "openaiChatCompletions": {
+          "base_url": "https://interceptor.adapter.test.com"
+        }
+      },
+      "interceptors": [],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 1,
+      "author": "test-author",
+      "createdAt": 123,
+      "updatedAt": 123,
+      "dependencies": [
+        "dep1",
+        "dep2"
+      ]
+    },
+    "testInterceptor2": {
+      "name": "testInterceptor2",
+      "endpoint": "https://endpoint.test.com/interceptor2",
+      "displayName": "Test Interceptor2",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responsesDefaults": {},
+      "interceptors": [],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 1,
+      "author": "test-author",
+      "createdAt": 123,
+      "updatedAt": 123,
+      "dependencies": [
+        "dep1",
+        "dep2"
+      ]
+    },
+    "testInterceptor3": {
+      "name": "testInterceptor3",
+      "endpoint": "https://endpoint.test.com/interceptor",
+      "displayName": "Test Interceptor3",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": false,
+        "max_tokens_supported": true,
+        "custom_temperature_supported": true,
+        "skills_supported": false
+      },
+      "defaults": {},
+      "responsesDefaults": {},
+      "interceptors": [],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 1,
+      "author": "test-author",
+      "createdAt": 123,
+      "updatedAt": 123,
+      "dependencies": []
+    }
+  },
+  "globalInterceptors": [
+    "testInterceptor2",
+    "testInterceptor1"
+  ],
+  "applicationTypeSchemas": [
+    {
+      "properties": {},
+      "required": [],
+      "$id": "https://test-schema-id.example",
+      "dial:applicationTypeEditorUrl": "https://test.com/billings",
+      "dial:applicationTypeViewerUrl": "https://test.com/claims",
+      "dial:applicationTypeDisplayName": "runner display name",
+      "dial:applicationTypeCompletionEndpoint": "https://test.io/openai/deployments/mindmap/chat/completions",
+      "dial:applicationTypeConfigurationEndpoint": "https://test.io/openai/configuration",
+      "dial:applicationTypeRateEndpoint": "https://test.io/openai/rate",
+      "dial:applicationTypeTokenizeEndpoint": "https://test.io/openai/tokenize",
+      "dial:applicationTypeTruncatePromptEndpoint": "https://test.io/openai/truncate",
+      "dial:appendApplicationPropertiesHeader": true,
+      "dial:applicationTypeInterceptors": ["testInterceptor1"],
+      "dial:applicationTypeAssistantAttachmentsInRequestSupported": false,
+      "dial:applicationTypeSchemaEndpoint": "https://test.com/endpoint",
+      "dial:applicationTypeResponsesEndpoint": "https://test.com/responses/endpoint",
+      "dial:applicationTypeMcp": {
+        "dial:endpoint": "http://localhost:9876/mcp",
+        "dial:transport": "HTTP",
+        "dial:allowedTools": ["classify_text"],
+        "dial:mcpConfigDelivery": "META",
+        "dial:forwardPerRequestKey": true
+      },
+      "$defs": {}
+    }
+  ]
+}

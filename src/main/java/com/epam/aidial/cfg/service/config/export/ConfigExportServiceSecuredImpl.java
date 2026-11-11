@@ -1,0 +1,159 @@
+package com.epam.aidial.cfg.service.config.export;
+
+import com.epam.aidial.cfg.service.config.impl.storage.ConfigSource;
+import com.epam.aidial.cfg.service.config.impl.storage.ConfigUtils;
+import com.epam.aidial.cfg.service.config.transfer.ConfigTransferLock;
+import com.epam.aidial.cfg.utils.UpstreamSecretUtils;
+import com.epam.aidial.core.config.Config;
+import com.epam.aidial.core.config.CoreApplication;
+import com.epam.aidial.core.config.CoreExternalService;
+import com.epam.aidial.core.config.CoreModel;
+import com.epam.aidial.core.config.CoreResourceAuthSettings;
+import com.epam.aidial.core.config.CoreRoute;
+import com.epam.aidial.core.config.CoreToolSet;
+import com.epam.aidial.core.config.CoreUpstream;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@RequiredArgsConstructor
+public class ConfigExportServiceSecuredImpl implements ConfigExportService {
+
+    private final ConfigSource configSource;
+    private final ConfigSource securedConfigSource;
+    private final ConfigTransferLock configTransferLock;
+
+    @Override
+    public void export(Config config, boolean createResources) {
+        Config secretConfig = secretConfig(config);
+        ConfigUtils.removeSecrets(config);
+        configTransferLock.withWriteLock(() -> {
+            configSource.writeConfig(config, createResources);
+            securedConfigSource.writeConfig(secretConfig, createResources);
+        });
+    }
+
+    private Config secretConfig(Config config) {
+        Config secretConfig = new Config();
+
+        secretConfig.setRoles(Map.of());
+        secretConfig.setKeys(config.getKeys());
+
+        Map<String, CoreModel> models = config.getModels().entrySet()
+                .stream()
+                .map(e -> Pair.of(e.getKey(), mapModel(e.getValue())))
+                .filter(p -> CollectionUtils.isNotEmpty(p.getValue().getUpstreams()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        secretConfig.setModels(models);
+
+        LinkedHashMap<String, CoreRoute> routes = config.getRoutes().entrySet()
+                .stream()
+                .map(e -> Pair.of(e.getKey(), mapRoute(e.getValue())))
+                .filter(p -> CollectionUtils.isNotEmpty(p.getValue().getUpstreams()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue, (a, b) -> a, LinkedHashMap::new));
+        secretConfig.setRoutes(routes);
+
+        Map<String, CoreApplication> applications = config.getApplications().entrySet()
+                .stream()
+                .map(e -> Pair.of(e.getKey(), mapApplication(e.getValue())))
+                .filter(p -> MapUtils.isNotEmpty(p.getValue().getRoutes())
+                        || MapUtils.isNotEmpty(p.getValue().getExternalServices()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        secretConfig.setApplications(applications);
+
+        Map<String, CoreToolSet> toolsets = config.getToolsets().entrySet()
+                .stream()
+                .map(e -> Pair.of(e.getKey(), mapToolSet(e.getValue())))
+                .filter(p -> StringUtils.isNotEmpty(p.getValue().getAuthSettings().getClientSecret()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        secretConfig.setToolsets(toolsets);
+
+        return secretConfig;
+    }
+
+    private CoreModel mapModel(CoreModel value) {
+        List<CoreUpstream> upstreams = Optional.ofNullable(value)
+                .map(CoreModel::getUpstreams)
+                .stream()
+                .flatMap(Collection::stream)
+                .filter(UpstreamSecretUtils::hasSecrets)
+                .collect(Collectors.toList());
+
+        CoreModel model = CoreModel.empty();
+        model.setUpstreams(upstreams);
+        return model;
+    }
+
+    private CoreRoute mapRoute(CoreRoute value) {
+        List<CoreUpstream> upstreams = Optional.ofNullable(value)
+                .map(CoreRoute::getUpstreams)
+                .stream()
+                .flatMap(Collection::stream)
+                .filter(UpstreamSecretUtils::hasSecrets)
+                .collect(Collectors.toList());
+
+        CoreRoute route = CoreRoute.empty();
+        route.setUpstreams(upstreams);
+        return route;
+    }
+
+    private CoreApplication mapApplication(CoreApplication value) {
+        LinkedHashMap<String, CoreRoute> routes = Optional.ofNullable(value)
+                .map(CoreApplication::getRoutes)
+                .stream()
+                .flatMap(map -> map.entrySet().stream())
+                .map(e -> Pair.of(e.getKey(), mapRoute(e.getValue())))
+                .filter(p -> CollectionUtils.isNotEmpty(p.getValue().getUpstreams()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue, (a, b) -> a, LinkedHashMap::new));
+
+        Map<String, CoreExternalService> externalServices = Optional.ofNullable(value)
+                .map(CoreApplication::getExternalServices)
+                .stream()
+                .flatMap(map -> map.entrySet().stream())
+                .filter(e -> e.getValue() != null
+                        && e.getValue().getAuthSettings() != null
+                        && StringUtils.isNotEmpty(e.getValue().getAuthSettings().getClientSecret()))
+                .map(e -> Pair.of(e.getKey(), mapExternalService(e.getValue())))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue, (a, b) -> a, LinkedHashMap::new));
+
+        CoreApplication app = CoreApplication.empty();
+        app.setRoutes(routes);
+        app.setExternalServices(externalServices.isEmpty() ? null : externalServices);
+        return app;
+    }
+
+    private CoreExternalService mapExternalService(CoreExternalService value) {
+        CoreResourceAuthSettings authSettings = CoreResourceAuthSettings.empty();
+        authSettings.setClientSecret(value.getAuthSettings().getClientSecret());
+        authSettings.setAuthenticationType(value.getAuthSettings().getAuthenticationType());
+
+        return new CoreExternalService().setAuthSettings(authSettings);
+    }
+
+    private CoreToolSet mapToolSet(CoreToolSet value) {
+        CoreResourceAuthSettings authSettings = CoreResourceAuthSettings.empty();
+        authSettings.setClientSecret(StringUtils.EMPTY);
+
+        if (value != null
+                && value.getAuthSettings() != null
+                && StringUtils.isNotEmpty(value.getAuthSettings().getClientSecret())) {
+            authSettings.setClientSecret(value.getAuthSettings().getClientSecret());
+            authSettings.setAuthenticationType(value.getAuthSettings().getAuthenticationType());
+        }
+
+        CoreToolSet toolSet = CoreToolSet.empty();
+        toolSet.setAuthSettings(authSettings);
+
+        return toolSet;
+    }
+
+}

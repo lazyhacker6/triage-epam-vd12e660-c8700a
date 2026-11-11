@@ -1,0 +1,51 @@
+{
+  "routes": {},
+  "models": {
+    "testModel1": {
+      "name": "testModel1",
+      "displayName": "Test Model1",
+      "displayVersion": "2.0.0",
+      "forwardAuthToken": false,
+      "features": {
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": false,
+        "url_attachments_supported": false,
+        "folder_attachments_supported": false,
+        "allow_resume": false,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": false,
+        "temperature_supported": true,
+        "cacheSupported": true,
+        "autoCachingSupported": false,
+        "consentRequired": false,
+        "parallelToolCallsSupported": true
+      },
+      "defaults": {},
+      "interceptors": [],
+      "descriptionKeywords": [],
+      "maxRetryAttempts": 5,
+      "type": "embedding",
+      "fieldsHashingOrder": ["prompt", "temperature"],
+      "upstreams": [],
+      "userRoles": [
+        "testRole1"
+      ],
+      "author": "test-author",
+      "createdAt": 12345,
+      "updatedAt": 12345,
+      "dependencies": ["dep1", "dep2"],
+      "endpoint": "https://endpoint1/embeddings"
+    }
+  },
+  "addons": {},
+  "applications": {},
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {},
+  "roles": {},
+  "retriableErrorCodes": [],
+  "interceptors": {},
+  "applicationTypeSchemas": []
+}

@@ -1,0 +1,53 @@
+package com.epam.aidial.cfg.domain.model;
+
+import com.epam.aidial.cfg.domain.model.source.ModelSource;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+@Data
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class Model extends RoleBased {
+
+    private String endpoint;
+    private String responsesEndpoint;
+    private Map<String, DeploymentInterface> interfaces;
+    private String description;
+    private String intro;
+    private String displayName;
+    private String displayVersion;
+    private String iconUrl;
+    private String reference;
+    private Boolean forwardAuthToken;
+    private Features features;
+    private List<String> inputAttachmentTypes;
+    private Integer maxInputAttachments;
+    private Map<String, Object> defaults;
+    private Map<String, Object> responsesDefaults;
+    private List<String> interceptors;
+    private Set<String> topics; //todo: rename to descriptionKeywords
+    private Integer maxRetryAttempts;
+    private String author;
+    private Long createdAt;
+    private Long updatedAt;
+    private List<String> dependencies;
+    private ModelType type;
+    private String tokenizerModel;
+    private TokenLimits limits;
+    private Pricing pricing;
+    private List<Upstream> upstreams;
+    private String overrideName;
+    private Map<String, String> defaultHeaders;
+    private String baseUrl;
+    private List<String> fieldsHashingOrder;
+    private Integer embeddingDimensions;
+    private ModelSource source;
+    private URI catalogSchemaId;
+    private Map<String, Object> catalogProperties;
+}

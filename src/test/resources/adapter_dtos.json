@@ -1,0 +1,8 @@
+[
+  {
+    "name": "name1",
+    "displayName": "name1",
+    "baseEndpoint": "http://baseEndpoint1",
+    "topics": ["test1"]
+  }
+]

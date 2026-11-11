@@ -1,0 +1,1442 @@
+package com.epam.aidial.cfg.service.config.transfer;
+
+import com.epam.aidial.cfg.configuration.JsonMapperConfiguration;
+import com.epam.aidial.cfg.exception.SchemaValidationException;
+import com.epam.aidial.cfg.service.config.transfer.version.CoreConfigVersionService;
+import com.epam.aidial.cfg.utils.ResourceUtils;
+import com.epam.aidial.core.config.Config;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class VersionAwareFieldFilterTest {
+
+    private static final ObjectMapper MAPPER = JsonMapperConfiguration.createJsonMapper();
+    private static final String VERSION = "1.0.0";
+
+    @Mock
+    private CoreConfigVersionService coreConfigVersionService;
+    @Mock
+    private VersionedSchemaLoader schemaLoader;
+
+    private VersionAwareFieldFilter filter;
+
+    @BeforeEach
+    void setUp() {
+        filter = new VersionAwareFieldFilter(coreConfigVersionService, schemaLoader, MAPPER);
+        when(coreConfigVersionService.getVersionForExport()).thenReturn(VERSION);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_regularEntityType_stripsUnknownFields() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "applications": {
+                      "patternProperties": {
+                        ".*": {
+                          "properties": {
+                            "name": {},
+                            "endpoint": {},
+                            "features": {
+                              "properties": {
+                                "rateEndpoint": {}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "name": "myApp",
+                  "endpoint": "http://endpoint",
+                  "unknownField": "value",
+                  "features": {
+                    "rateEndpoint": "http://rate",
+                    "unknownNested": "x"
+                  }
+                }
+                """);
+        JsonNode expectedResult = MAPPER.readTree("""
+                {
+                  "name": "myApp",
+                  "endpoint": "http://endpoint",
+                  "features": {
+                    "rateEndpoint": "http://rate"
+                  }
+                }
+                """);
+
+        // when
+        JsonNode actualResult = filter.filterEntityNodeForTargetVersion(entityNode, "applications");
+
+        // then
+        assertThat(actualResult).isEqualTo(expectedResult);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_regularEntityTypeAndAllFieldsKnown_returnsEntityUnchanged() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "applications": {
+                      "patternProperties": {
+                        ".*": {
+                          "properties": {
+                            "name": {},
+                            "endpoint": {},
+                            "features": {
+                              "properties": {
+                                "rateEndpoint": {}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "name": "myApp",
+                  "endpoint": "http://endpoint",
+                  "features": {
+                    "rateEndpoint": "http://rate"
+                  }
+                }
+                """);
+        JsonNode expectedResult = MAPPER.readTree("""
+                {
+                  "name": "myApp",
+                  "endpoint": "http://endpoint",
+                  "features": {
+                    "rateEndpoint": "http://rate"
+                  }
+                }
+                """);
+
+        // when
+        JsonNode actualResult = filter.filterEntityNodeForTargetVersion(entityNode, "applications");
+
+        // then
+        assertThat(actualResult).isEqualTo(expectedResult);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_oneOfBranchObjectFields_kept() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "models": {
+                      "patternProperties": {
+                        ".*": {
+                          "properties": {
+                            "pricing": {
+                              "properties": {
+                                "cacheRead": {
+                                  "oneOf": [
+                                    {"type": "number"},
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "test": {
+                                          "properties": {"field": {}}
+                                        },
+                                        "ifTrue": {},
+                                        "ifFalse": {}
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "pricing": {
+                    "cacheRead": {
+                      "test": {"field": "tokenCount", "unknownField": "x"},
+                      "ifTrue": "0.5",
+                      "ifFalse": "1.0"
+                    }
+                  }
+                }
+                """);
+        JsonNode expectedResult = MAPPER.readTree("""
+                {
+                  "pricing": {
+                    "cacheRead": {
+                      "test": {"field": "tokenCount"},
+                      "ifTrue": "0.5",
+                      "ifFalse": "1.0"
+                    }
+                  }
+                }
+                """);
+
+        // when
+        JsonNode actualResult = filter.filterEntityNodeForTargetVersion(entityNode, "models");
+
+        // then
+        assertThat(actualResult).isEqualTo(expectedResult);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_oneOfBranchFlatRate_kept() throws Exception {
+        // given the same oneOf schema as above, but with the flat-rate branch of cacheRead - it must
+        // keep passing through unchanged now that the object branch is also merged in
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "models": {
+                      "patternProperties": {
+                        ".*": {
+                          "properties": {
+                            "pricing": {
+                              "properties": {
+                                "cacheRead": {
+                                  "oneOf": [
+                                    {"type": "number"},
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "test": {
+                                          "properties": {"field": {}}
+                                        },
+                                        "ifTrue": {},
+                                        "ifFalse": {}
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "pricing": {
+                    "cacheRead": "0.5"
+                  }
+                }
+                """);
+
+        // when
+        JsonNode actualResult = filter.filterEntityNodeForTargetVersion(entityNode, "models");
+
+        // then
+        assertThat(actualResult).isEqualTo(entityNode);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_entityTypeNotInSchema_throwsSchemaValidationException() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "models": {}
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "name": "myApp",
+                  "endpoint": "http://endpoint"
+                }
+                """);
+
+        // when / then
+        assertThatThrownBy(() -> filter.filterEntityNodeForTargetVersion(entityNode, "applications"))
+                .isInstanceOf(SchemaValidationException.class)
+                .hasMessage("Schema for version 1.0.0 does not define entity type 'applications'");
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_applicationTypeSchemas_stripsUnknownFields() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "applicationTypeSchemas": {
+                      "patternProperties": {
+                        ".*": {
+                          "properties": {
+                            "$id": {},
+                            "title": {},
+                            "features": {
+                              "properties": {
+                                "rateEndpoint": {}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "$id": "my-schema",
+                  "title": "My Schema",
+                  "unknownField": "value",
+                  "features": {
+                    "rateEndpoint": "http://rate",
+                    "unknownNested": "x"
+                  }
+                }
+                """);
+        JsonNode expectedResult = MAPPER.readTree("""
+                {
+                  "$id": "my-schema",
+                  "title": "My Schema",
+                  "features": {
+                    "rateEndpoint": "http://rate"
+                  }
+                }
+                """);
+
+        // when
+        JsonNode actualResult = filter.filterEntityNodeForTargetVersion(entityNode, "applicationTypeSchemas");
+
+        // then
+        assertThat(actualResult).isEqualTo(expectedResult);
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_applicationTypeSchemasNotInSchema_throwsSchemaValidationException() throws Exception {
+        // given
+        JsonNode schema = MAPPER.readTree("""
+                {
+                  "properties": {
+                    "models": {}
+                  }
+                }
+                """);
+        when(schemaLoader.loadSchema(VERSION)).thenReturn(schema);
+
+        JsonNode entityNode = MAPPER.readTree("""
+                {
+                  "$id": "my-schema",
+                  "title": "My Schema"
+                }
+                """);
+
+        // when / then
+        assertThatThrownBy(() -> filter.filterEntityNodeForTargetVersion(entityNode, "applicationTypeSchemas"))
+                .isInstanceOf(SchemaValidationException.class)
+                .hasMessage("Schema for version 1.0.0 does not define entity type 'applicationTypeSchemas'");
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_schemaLoaderThrowsException_throwsSchemaValidationException() {
+        // given
+        when(schemaLoader.loadSchema(VERSION)).thenThrow(new RuntimeException("schema not found"));
+
+        JsonNode entityNode = MAPPER.createObjectNode();
+
+        // when / then
+        assertThatThrownBy(() -> filter.filterEntityNodeForTargetVersion(entityNode, "applications"))
+                .isInstanceOf(SchemaValidationException.class)
+                .hasMessage("Failed to filter entity node for version: 1.0.0");
+    }
+
+    @Test
+    void filterEntityNodeForTargetVersion_schemaLoaderThrowsSchemaValidationException_rethrowsAsIs() {
+        // given
+        SchemaValidationException original = new SchemaValidationException("version not supported");
+        when(schemaLoader.loadSchema(VERSION)).thenThrow(original);
+
+        JsonNode entityNode = MAPPER.createObjectNode();
+
+        // when / then
+        assertThatThrownBy(() -> filter.filterEntityNodeForTargetVersion(entityNode, "applications"))
+                .isSameAs(original);
+    }
+
+    @Test
+    void filterForTargetVersion_interfacesKeptWhenTargetVersionSupportsThem() throws IOException {
+        // given
+        mockRealSchema("0.46.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://model.adapter"},
+                        "anthropicMessages": {"base_url": "http://model.adapter"}
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode interfaces = result.get("models").get("m1").get("interfaces");
+        assertThat(interfaces.get("openaiChatCompletions").get("base_url").asString()).isEqualTo("http://model.adapter");
+        assertThat(interfaces.get("anthropicMessages").get("base_url").asString()).isEqualTo("http://model.adapter");
+    }
+
+    @Test
+    void filterForTargetVersion_interfaceFeaturesKeptWhenTargetVersionSupportsThem() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "features": {"reasoning_efforts": ["low", "high"], "tools_supported": true},
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://model.adapter"},
+                        "anthropicMessages": {
+                          "base_url": "http://model.adapter",
+                          "features": {
+                            "reasoning_efforts": ["low", "medium", "high", "xhigh", "max"],
+                            "rate_endpoint": "http://model.adapter/rate",
+                            "tools_supported": false
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode interfaces = result.get("models").get("m1").get("interfaces");
+        assertThat(interfaces.get("openaiChatCompletions").has("features")).isFalse();
+
+        JsonNode features = interfaces.get("anthropicMessages").get("features");
+        assertThat(features.get("rate_endpoint").asString()).isEqualTo("http://model.adapter/rate");
+        assertThat(features.get("tools_supported").asBoolean()).isFalse();
+        assertThat(features.get("reasoning_efforts"))
+                .isEqualTo(MAPPER.readTree("""
+                        ["low", "medium", "high", "xhigh", "max"]"""));
+    }
+
+    @Test
+    void filterForTargetVersion_interfaceFeaturesEmptyReasoningEffortsSurvivesExport() throws IOException {
+        // given an interface that supports no reasoning efforts at all: the empty array is what tells
+        // Core to clear the list inherited from the deployment, so it must not be dropped
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "features": {"reasoning_efforts": ["low", "high"]},
+                      "interfaces": {
+                        "openaiChatCompletions": {
+                          "base_url": "http://model.adapter",
+                          "features": {"reasoning_efforts": []}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode features = result.get("models").get("m1").get("interfaces")
+                .get("openaiChatCompletions").get("features");
+        assertThat(features.has("reasoning_efforts")).isTrue();
+        assertThat(features.get("reasoning_efforts")).isEmpty();
+        // the deployment-level list is untouched
+        assertThat(result.get("models").get("m1").get("features").get("reasoning_efforts"))
+                .isEqualTo(MAPPER.readTree("""
+                        ["low", "high"]"""));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.46.0", "0.47.0"})
+    void filterForTargetVersion_interfaceFeaturesStrippedButInterfaceKeptForOlderTargetVersions(String version)
+            throws IOException {
+        // given
+        mockRealSchema(version);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiChatCompletions": {
+                          "base_url": "http://model.adapter",
+                          "features": {"rate_endpoint": "http://model.adapter/rate"}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then the interface itself survives - only the unsupported features field is stripped
+        JsonNode deploymentInterface = result.get("models").get("m1").get("interfaces").get("openaiChatCompletions");
+        assertThat(deploymentInterface.get("base_url").asString()).isEqualTo("http://model.adapter");
+        assertThat(deploymentInterface.has("features")).isFalse();
+    }
+
+    @Test
+    void filterForTargetVersion_interfaceOverridePathsKeptWhenTargetVersionSupportsThem() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiResponses": {
+                          "base_url": "http://model.adapter",
+                          "overridePaths": {
+                            "createResponse": "/v1/{overrideName}/responses",
+                            "getResponse": "/v1/{overrideName}/responses/{id}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode overridePaths = result.get("models").get("m1").get("interfaces")
+                .get("openaiResponses").get("overridePaths");
+        assertThat(overridePaths.get("createResponse").asString()).isEqualTo("/v1/{overrideName}/responses");
+        assertThat(overridePaths.get("getResponse").asString()).isEqualTo("/v1/{overrideName}/responses/{id}");
+    }
+
+    @Test
+    void filterForTargetVersion_interfaceDefaultsKeptWhenTargetVersionSupportsThem() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiResponses": {
+                          "base_url": "http://model.adapter",
+                          "defaults": {
+                            "temperature": 0.5
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode defaults = result.get("models").get("m1").get("interfaces")
+                .get("openaiResponses").get("defaults");
+        assertThat(defaults.get("temperature").asDouble()).isEqualTo(0.5);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.46.0", "0.47.0"})
+    void filterForTargetVersion_interfaceOverridePathsStrippedButInterfaceKeptForOlderTargetVersions(String version)
+            throws IOException {
+        // given
+        mockRealSchema(version);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiChatCompletions": {
+                          "base_url": "http://model.adapter",
+                          "overridePaths": {"createChatCompletion": "/v1/{overrideName}/chat/completions"}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then the interface itself survives - only the unsupported overridePaths field is stripped
+        JsonNode deploymentInterface = result.get("models").get("m1").get("interfaces").get("openaiChatCompletions");
+        assertThat(deploymentInterface.get("base_url").asString()).isEqualTo("http://model.adapter");
+        assertThat(deploymentInterface.has("overridePaths")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.46.0", "0.47.0"})
+    void filterForTargetVersion_interfaceDefaultsStrippedButInterfaceKeptForOlderTargetVersions(String version)
+            throws IOException {
+        // given
+        mockRealSchema(version);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiChatCompletions": {
+                          "base_url": "http://model.adapter",
+                          "defaults": {"temperature": 0.5}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then the interface itself survives - only the unsupported defaults field is stripped
+        JsonNode deploymentInterface = result.get("models").get("m1").get("interfaces").get("openaiChatCompletions");
+        assertThat(deploymentInterface.get("base_url").asString()).isEqualTo("http://model.adapter");
+        assertThat(deploymentInterface.has("defaults")).isFalse();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingCacheReadDecisionTreeKeptAt048() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {
+                        "unit": "token",
+                        "prompt": "0.001",
+                        "completion": "0.002",
+                        "cacheRead": {
+                          "test": {"field": "tokenCount", "operator": ">", "value": 1000},
+                          "ifTrue": "0.0005",
+                          "ifFalse": "0.001"
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode cacheRead = result.get("models").get("m1").get("pricing").get("cacheRead");
+        assertThat(cacheRead.get("test").get("field").asString()).isEqualTo("tokenCount");
+        assertThat(cacheRead.get("test").get("operator").asString()).isEqualTo(">");
+        assertThat(cacheRead.get("ifTrue").asString()).isEqualTo("0.0005");
+        assertThat(cacheRead.get("ifFalse").asString()).isEqualTo("0.001");
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingCacheReadNestedDecisionTreeKeptAt048() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {
+                        "unit": "token",
+                        "prompt": "0.001",
+                        "completion": "0.002",
+                        "cacheRead": {
+                          "test": {"field": "tokenCount", "operator": ">", "value": 1000},
+                          "ifTrue": {
+                            "test": {"field": "tokenCount", "operator": ">", "value": 10000},
+                            "ifTrue": "0.0001",
+                            "ifFalse": "0.0005"
+                          },
+                          "ifFalse": "0.001"
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode cacheRead = result.get("models").get("m1").get("pricing").get("cacheRead");
+        JsonNode nestedIfTrue = cacheRead.get("ifTrue");
+        assertThat(nestedIfTrue.get("test").get("field").asString()).isEqualTo("tokenCount");
+        assertThat(nestedIfTrue.get("ifTrue").asString()).isEqualTo("0.0001");
+        assertThat(nestedIfTrue.get("ifFalse").asString()).isEqualTo("0.0005");
+        assertThat(cacheRead.get("ifFalse").asString()).isEqualTo("0.001");
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingCacheWriteDecisionTreeKeptAt048() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {
+                        "unit": "token",
+                        "prompt": "0.001",
+                        "completion": "0.002",
+                        "cacheWrite": {
+                          "test": {"field": "tokenCount", "operator": ">", "value": 1000},
+                          "ifTrue": "0.0015",
+                          "ifFalse": "0.002"
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode cacheWrite = result.get("models").get("m1").get("pricing").get("cacheWrite");
+        assertThat(cacheWrite.get("test").get("field").asString()).isEqualTo("tokenCount");
+        assertThat(cacheWrite.get("test").get("operator").asString()).isEqualTo(">");
+        assertThat(cacheWrite.get("ifTrue").asString()).isEqualTo("0.0015");
+        assertThat(cacheWrite.get("ifFalse").asString()).isEqualTo("0.002");
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingCacheReadFlatRateKeptAt048() throws IOException {
+        // given a plain flat-rate cacheRead at 0.48.0+ - the oneOf's flat-rate branch - it must keep
+        // passing through unaffected by the decision-tree branch now being merged in too
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {
+                        "unit": "token",
+                        "prompt": "0.001",
+                        "completion": "0.002",
+                        "cacheRead": "0.0005"
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        assertThat(result.get("models").get("m1").get("pricing").get("cacheRead").asString()).isEqualTo("0.0005");
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingCacheReadFlatRateKeptAt047() throws IOException {
+        // given a flat-rate cacheRead at 0.47.0, where the schema declares it as a plain number with no
+        // oneOf at all - unrelated to the PricingRate oneOf, kept here as a pre-0.48.0 regression guard
+        mockRealSchema("0.47.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {
+                        "unit": "token",
+                        "prompt": "0.001",
+                        "completion": "0.002",
+                        "cacheRead": "0.0005"
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        assertThat(result.get("models").get("m1").get("pricing").get("cacheRead").asString()).isEqualTo("0.0005");
+        assertThat(schemaChecker.check(result, "0.47.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingPromptDecisionTreeKeptAt049() throws IOException {
+        // given
+        mockRealSchema("0.49.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {"unit": "token",
+                          "prompt": {"test": {"field": "promptTokens", "operator": ">", "value": 128000}, "ifTrue": "0.000006", "ifFalse": "0.000003"},
+                          "completion": "0.000015"}
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode pricing = result.get("models").get("m1").get("pricing");
+        assertThat(pricing.get("prompt").get("test").get("field").asString()).isEqualTo("promptTokens");
+        assertThat(pricing.get("prompt").get("test").get("operator").asString()).isEqualTo(">");
+        assertThat(pricing.get("prompt").get("ifTrue").asString()).isEqualTo("0.000006");
+        assertThat(pricing.get("prompt").get("ifFalse").asString()).isEqualTo("0.000003");
+        assertThat(pricing.get("completion").asString()).isEqualTo("0.000015");
+        assertThat(schemaChecker.check(result, "0.49.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingFlatPromptCompletionKeptAt049() throws IOException {
+        // given
+        mockRealSchema("0.49.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {"unit": "token", "prompt": "0.000003", "completion": "0.000015"}
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode pricing = result.get("models").get("m1").get("pricing");
+        assertThat(pricing.get("prompt").asString()).isEqualTo("0.000003");
+        assertThat(pricing.get("completion").asString()).isEqualTo("0.000015");
+        assertThat(schemaChecker.check(result, "0.49.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_pricingFlatPromptCompletionKeptAt048() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "pricing": {"unit": "token", "prompt": "0.000003", "completion": "0.000015"}
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode pricing = result.get("models").get("m1").get("pricing");
+        assertThat(pricing.get("prompt").asString()).isEqualTo("0.000003");
+        assertThat(pricing.get("completion").asString()).isEqualTo("0.000015");
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_deploymentBaseUrlKeptAtVersionThatSupportsIt() throws IOException {
+        // given the deployment-level base URL introduced in 0.48.0: it is the fallback that serves every
+        // interface declaring none of its own, so it must not be filtered out of the export
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "baseUrl": "http://model.adapter"
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        assertThat(result.get("models").get("m1").get("baseUrl").asString()).isEqualTo("http://model.adapter");
+    }
+
+    @Test
+    void filterForTargetVersion_featuresOnlyInterfaceWithoutBaseUrlIsKept() throws IOException {
+        // given an interface that only overrides features and relies on the deployment-level base URL:
+        // reading it at all exercises that base_url is optional on CoreDeploymentInterface
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "baseUrl": "http://model.adapter",
+                      "features": {"reasoning_efforts": ["low", "high"]},
+                      "interfaces": {
+                        "anthropicMessages": {
+                          "features": {"reasoning_efforts": ["low", "medium", "high", "xhigh", "max"]}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then the entry survives with its features, carrying no base_url of its own
+        JsonNode deploymentInterface = result.get("models").get("m1").get("interfaces").get("anthropicMessages");
+        assertThat(deploymentInterface.has("base_url")).isFalse();
+        assertThat(deploymentInterface.get("features").get("reasoning_efforts"))
+                .isEqualTo(MAPPER.readTree("""
+                        ["low", "medium", "high", "xhigh", "max"]"""));
+        assertThat(result.get("models").get("m1").get("baseUrl").asString()).isEqualTo("http://model.adapter");
+    }
+
+    @Test
+    void filterForTargetVersion_featuresOnlyInterfaceHasNoSchemaViolations() throws IOException {
+        // given the same features-only entry: the 0.48.0 schema must not require base_url on an interface
+        mockRealSchema("0.48.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "baseUrl": "http://model.adapter",
+                      "interfaces": {
+                        "anthropicMessages": {
+                          "features": {"rate_endpoint": "http://model.adapter/rate"}
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        assertThat(schemaChecker.check(result, "0.48.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_unsupportedInterfaceKeyDroppedForApplication() throws IOException {
+        // given
+        mockRealSchema("0.46.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "applications": {
+                    "app1": {
+                      "endpoint": "http://app/chat/completions",
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://app.adapter"},
+                        "anthropicMessages": {"base_url": "http://app.adapter"}
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode interfaces = result.get("applications").get("app1").get("interfaces");
+        assertThat(interfaces.has("openaiChatCompletions")).isTrue();
+        assertThat(interfaces.has("anthropicMessages")).isFalse();
+    }
+
+    @Test
+    void filterForTargetVersion_interfacesStrippedButDeploymentKeptWhenEndpointPresent() throws IOException {
+        // given
+        mockRealSchema("0.45.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://model.adapter"}
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode model = result.get("models").get("m1");
+        assertThat(model.has("interfaces")).isFalse();
+        assertThat(model.get("endpoint").asString()).isEqualTo("http://model/chat/completions");
+    }
+
+    @Test
+    void filterForTargetVersion_interfacesOnlyDeploymentSkippedWhenTargetVersionDoesNotSupportThem() throws IOException {
+        // given
+        mockRealSchema("0.45.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://model.adapter"}
+                      }
+                    },
+                    "m2": {
+                      "endpoint": "http://model/chat/completions"
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        assertThat(result.get("models").has("m1")).isFalse();
+        assertThat(result.get("models").has("m2")).isTrue();
+    }
+
+    @Test
+    void filterForTargetVersion_externalServicesKeptAt046AndStrippedAt045() throws IOException {
+        // given
+        Config config = MAPPER.readValue("""
+                {
+                  "applications": {
+                    "app1": {
+                      "endpoint": "http://app/chat/completions",
+                      "externalServices": {
+                        "service1": {
+                          "displayName": "Service 1",
+                          "description": "External service",
+                          "authSettings": {
+                            "authenticationType": "OAUTH",
+                            "clientId": "client-id-1",
+                            "tokenEndpointAuthMethod": "client_secret_post"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when / then: kept at 0.46
+        mockRealSchema("0.46.0");
+        JsonNode kept = filter.filterForTargetVersion(config);
+        JsonNode service = kept.get("applications").get("app1").get("external_services").get("service1");
+        assertThat(service.get("display_name").asString()).isEqualTo("Service 1");
+        assertThat(service.get("auth_settings").get("client_id").asString()).isEqualTo("client-id-1");
+
+        // when / then: stripped at 0.45, application kept (still has endpoint)
+        mockRealSchema("0.45.0");
+        JsonNode stripped = filter.filterForTargetVersion(config);
+        JsonNode app = stripped.get("applications").get("app1");
+        assertThat(app.has("external_services")).isFalse();
+        assertThat(app.get("endpoint").asString()).isEqualTo("http://app/chat/completions");
+    }
+
+    @Test
+    void filterForTargetVersion_applicationWithRoutesKeptWhenInterfacesStripped() throws IOException {
+        // given
+        mockRealSchema("0.45.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "applications": {
+                    "app1": {
+                      "interfaces": {
+                        "openaiChatCompletions": {"base_url": "http://app.adapter"}
+                      },
+                      "routes": {
+                        "route1": {"paths": ["/v1/route"]}
+                      }
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode application = result.get("applications").get("app1");
+        assertThat(application).isNotNull();
+        assertThat(application.has("interfaces")).isFalse();
+        assertThat(application.get("routes").has("route1")).isTrue();
+    }
+
+    @Test
+    void filterForTargetVersion_upstreamBaseUrlAndInterfacesKeptWhenTargetVersionSupportsThem() throws IOException {
+        // given
+        mockRealSchema("0.48.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "upstreams": [
+                        {
+                          "id": "upstream1",
+                          "base_url": "http://upstream.adapter",
+                          "interfaces": {
+                            "openaiChatCompletions": {"endpoint": "http://upstream.adapter/v1/chat/completions"}
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode upstream = result.get("models").get("m1").get("upstreams").get(0);
+        assertThat(upstream.get("baseUrl").asString()).isEqualTo("http://upstream.adapter");
+        assertThat(upstream.get("interfaces").get("openaiChatCompletions").get("endpoint").asString())
+                .isEqualTo("http://upstream.adapter/v1/chat/completions");
+    }
+
+    @Test
+    void filterForTargetVersion_upstreamKeptWhenBaseUrlAndInterfacesStrippedButEndpointPresent() throws IOException {
+        // given
+        mockRealSchema("0.47.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "upstreams": [
+                        {
+                          "id": "upstream1",
+                          "endpoint": "http://upstream.direct/chat/completions",
+                          "base_url": "http://upstream.adapter",
+                          "interfaces": {
+                            "openaiChatCompletions": {"endpoint": "http://upstream.adapter/v1/chat/completions"}
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode upstreams = result.get("models").get("m1").get("upstreams");
+        assertThat(upstreams).hasSize(1);
+        JsonNode upstream = upstreams.get(0);
+        assertThat(upstream.has("baseUrl")).isFalse();
+        assertThat(upstream.has("interfaces")).isFalse();
+        assertThat(upstream.get("endpoint").asString()).isEqualTo("http://upstream.direct/chat/completions");
+    }
+
+    @Test
+    void filterForTargetVersion_upstreamOnlyBaseUrlAndInterfacesDroppedWhenTargetVersionDoesNotSupportThem() throws IOException {
+        // given
+        mockRealSchema("0.47.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "models": {
+                    "m1": {
+                      "upstreams": [
+                        {
+                          "id": "upstream1",
+                          "base_url": "http://upstream.adapter",
+                          "interfaces": {
+                            "openaiChatCompletions": {"endpoint": "http://upstream.adapter/v1/chat/completions"}
+                          }
+                        },
+                        {
+                          "endpoint": "http://upstream2.direct/chat/completions"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode upstreams = result.get("models").get("m1").get("upstreams");
+        assertThat(upstreams).hasSize(1);
+        assertThat(upstreams.get(0).get("endpoint").asString()).isEqualTo("http://upstream2.direct/chat/completions");
+    }
+
+    @Test
+    void filterForTargetVersion_routeUpstreamOnlyBaseUrlDroppedWhenTargetVersionDoesNotSupportIt() throws IOException {
+        // given
+        mockRealSchema("0.47.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "routes": {
+                    "r1": {
+                      "upstreams": [
+                        {
+                          "base_url": "http://upstream.adapter"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode upstreams = result.get("routes").get("r1").get("upstreams");
+        assertThat(upstreams).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_upstreamAuthTypeCustomHeaderAndPlainTypesKeptAt050() throws IOException {
+        // given
+        mockRealSchema("0.50.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "routes": {
+                    "r1": {
+                      "upstreams": [
+                        {"endpoint": "http://upstream1", "key": "k1", "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}},
+                        {"endpoint": "http://upstream2", "key": "k2", "authType": "BEARER"},
+                        {"endpoint": "http://upstream3"}
+                      ]
+                    }
+                  },
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "upstreams": [
+                        {"endpoint": "http://upstream1", "key": "k1", "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}}
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode routeUpstreams = result.get("routes").get("r1").get("upstreams");
+        assertThat(routeUpstreams).hasSize(3);
+        assertThat(routeUpstreams.get(0).get("authType").get("type").asString()).isEqualToIgnoringCase("CUSTOM_HEADER");
+        assertThat(routeUpstreams.get(0).get("authType").get("headerName").asString()).isEqualTo("X-Api-Token");
+        assertThat(routeUpstreams.get(1).get("authType").asString()).isEqualToIgnoringCase("BEARER");
+        assertThat(routeUpstreams.get(2).get("authType").asString()).isEqualToIgnoringCase("API_KEY");
+        assertThat(result.get("models").get("m1").get("upstreams")).hasSize(1);
+        assertThat(schemaChecker.check(result, "0.50.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_upstreamAuthTypeCustomHeaderSkippedAt049() throws IOException {
+        // given
+        mockRealSchema("0.49.0");
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue("""
+                {
+                  "routes": {
+                    "r1": {
+                      "upstreams": [
+                        {"endpoint": "http://upstream1", "key": "k1", "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}},
+                        {"endpoint": "http://upstream2", "key": "k2", "authType": "BEARER"},
+                        {"endpoint": "http://upstream3"}
+                      ]
+                    }
+                  },
+                  "models": {
+                    "m1": {
+                      "endpoint": "http://model/chat/completions",
+                      "upstreams": [
+                        {"endpoint": "http://upstream1", "key": "k1", "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}},
+                        {"endpoint": "http://upstream2", "key": "k2"}
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode routeUpstreams = result.get("routes").get("r1").get("upstreams");
+        assertThat(routeUpstreams).hasSize(2);
+        assertThat(routeUpstreams.get(0).get("endpoint").asString()).isEqualTo("http://upstream2");
+        assertThat(routeUpstreams.get(0).get("authType").asString()).isEqualToIgnoringCase("BEARER");
+        assertThat(routeUpstreams.get(1).get("endpoint").asString()).isEqualTo("http://upstream3");
+        JsonNode modelUpstreams = result.get("models").get("m1").get("upstreams");
+        assertThat(modelUpstreams).hasSize(1);
+        assertThat(modelUpstreams.get(0).get("endpoint").asString()).isEqualTo("http://upstream2");
+        assertThat(schemaChecker.check(result, "0.49.0")).isEmpty();
+    }
+
+    @Test
+    void filterForTargetVersion_customHeaderAndBaseUrlOnlyUpstreamsBothSkippedBeforeSupport() throws IOException {
+        // given
+        mockRealSchema("0.47.0");
+        Config config = MAPPER.readValue("""
+                {
+                  "routes": {
+                    "r1": {
+                      "upstreams": [
+                        {"endpoint": "http://upstream1", "key": "k1", "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}},
+                        {"base_url": "http://upstream.adapter"},
+                        {"endpoint": "http://upstream3"}
+                      ]
+                    }
+                  }
+                }
+                """, Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        JsonNode upstreams = result.get("routes").get("r1").get("upstreams");
+        assertThat(upstreams).hasSize(1);
+        assertThat(upstreams.get(0).get("endpoint").asString()).isEqualTo("http://upstream3");
+    }
+
+    private void mockRealSchema(String version) throws IOException {
+        JsonNode schema = loadRealSchema(version);
+        when(coreConfigVersionService.getVersionForExport()).thenReturn(version);
+        when(schemaLoader.loadSchema(version)).thenReturn(schema);
+    }
+
+    @ParameterizedTest
+    @MethodSource("realSchemaVersions")
+    void filterForTargetVersion_fullyPopulatedConfig_resultHasNoSchemaViolations(String version) throws IOException {
+        // given
+        JsonNode schema = loadRealSchema(version);
+        when(coreConfigVersionService.getVersionForExport()).thenReturn(version);
+        when(schemaLoader.loadSchema(version)).thenReturn(schema);
+
+        VersionAwareSchemaChecker schemaChecker = new VersionAwareSchemaChecker(schemaLoader);
+        Config config = MAPPER.readValue(ResourceUtils.readResource("/import_for_export.json"), Config.class);
+
+        // when
+        JsonNode result = filter.filterForTargetVersion(config);
+
+        // then
+        List<String> violations = schemaChecker.check(result, version);
+        assertThat(violations)
+                .as("Schema violations for version %s", version)
+                .isEmpty();
+    }
+
+    private JsonNode loadRealSchema(String version) throws IOException {
+        String path = "core-config-schemas/schema-v" + version + ".json";
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
+            return MAPPER.readTree(is);
+        }
+    }
+
+    private static Stream<String> realSchemaVersions() throws IOException {
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] resources = resolver.getResources("classpath:core-config-schemas/schema-v*.json");
+
+        return Arrays.stream(resources)
+                .map(Resource::getFilename)
+                .map(name -> name
+                        .replace("schema-v", "")
+                        .replace(".json", ""));
+    }
+}

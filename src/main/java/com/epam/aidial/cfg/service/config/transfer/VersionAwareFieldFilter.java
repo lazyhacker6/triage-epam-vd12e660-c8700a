@@ -1,0 +1,632 @@
+package com.epam.aidial.cfg.service.config.transfer;
+
+import com.epam.aidial.cfg.configuration.logging.LogExecution;
+import com.epam.aidial.cfg.exception.SchemaValidationException;
+import com.epam.aidial.cfg.service.config.transfer.version.CoreConfigVersionService;
+import com.epam.aidial.core.config.Config;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Filters config objects based on JSON schema definitions for specific versions.
+ * Ensures only fields defined in the schema are included in the exported config.
+ */
+@Slf4j
+@Service
+@LogExecution
+@RequiredArgsConstructor
+public class VersionAwareFieldFilter {
+
+    private static final String APPLICATION_TYPE_SCHEMAS_KEY = "applicationTypeSchemas";
+    private static final String INTERFACES_KEY = "interfaces";
+    private static final String INTERFACES_DEFINITION_KEY = "DeploymentInterface";
+    private static final List<String> DEPLOYMENT_ENTITY_TYPES = List.of("models", "applications", "interceptors");
+    private static final String UPSTREAMS_KEY = "upstreams";
+    private static final String UPSTREAM_INTERFACE_DEFINITION_KEY = "UpstreamInterface";
+    private static final String UPSTREAM_AUTH_CONFIG_DEFINITION_KEY = "UpstreamAuthConfig";
+    private static final List<String> UPSTREAM_ENTITY_TYPES = List.of("models", "routes");
+
+    private final CoreConfigVersionService coreConfigVersionService;
+    private final VersionedSchemaLoader schemaLoader;
+    private final ObjectMapper objectMapper;
+
+    /**
+     * Filters a Config object to include only fields defined in the schema for the specified version.
+     *
+     * @param config The config to filter by target version
+     * @return Filtered config node with only schema-defined fields
+     */
+    public JsonNode filterForTargetVersion(Config config) {
+        String version = coreConfigVersionService.getVersionForExport();
+        try {
+            JsonNode schema = schemaLoader.loadSchema(version);
+            String configJson = objectMapper.writeValueAsString(config);
+            JsonNode configNode = objectMapper.readTree(configJson);
+            JsonNode filteredNode = filterNodeBySchema(configNode, schema);
+            removeDeploymentsLeftWithoutRouting(configNode, filteredNode, schema, version);
+            removeUnsupportedUpstreams(configNode, filteredNode, schema, version);
+            return filteredNode;
+        } catch (Exception e) {
+            log.error("Failed to filter config for version: {}", version, e);
+            throw new SchemaValidationException("Failed to filter config for version: %s".formatted(version), e);
+        }
+    }
+
+    /**
+     * Removes deployments whose only routing configuration was the {@code interfaces} map after it has been
+     * stripped by a target schema that does not support it (Core &lt; 0.46.0). Such deployments would be
+     * exported without any endpoint and would be invalid for the target Core version.
+     */
+    private void removeDeploymentsLeftWithoutRouting(JsonNode originalNode, JsonNode filteredNode,
+                                                     JsonNode schema, String version) {
+        JsonNode definitions = schema.get("definitions");
+        if (definitions != null && definitions.has(INTERFACES_DEFINITION_KEY)) {
+            // Target version supports interfaces - nothing is stripped
+            return;
+        }
+
+        for (String entityType : DEPLOYMENT_ENTITY_TYPES) {
+            JsonNode originalEntities = originalNode.get(entityType);
+            JsonNode filteredEntities = filteredNode.get(entityType);
+            if (originalEntities == null || !originalEntities.isObject()
+                    || filteredEntities == null || !filteredEntities.isObject()) {
+                continue;
+            }
+
+            Iterator<Map.Entry<String, JsonNode>> entities = originalEntities.properties().iterator();
+            while (entities.hasNext()) {
+                Map.Entry<String, JsonNode> entity = entities.next();
+                String name = entity.getKey();
+                JsonNode originalEntity = entity.getValue();
+                JsonNode filteredEntity = filteredEntities.get(name);
+
+                if (filteredEntity != null
+                        && hasNonEmptyField(originalEntity, INTERFACES_KEY)
+                        && hasNoRouting(filteredEntity)) {
+                    ((ObjectNode) filteredEntities).remove(name);
+                    log.warn("Skipped {} '{}' on export to Core version {}: its only routing configuration "
+                                    + "is 'interfaces', which is not supported by the target version",
+                            entityType, name, version);
+                }
+            }
+        }
+    }
+
+    private boolean hasNoRouting(JsonNode entity) {
+        JsonNode mcp = entity.get("mcp");
+        return !hasNonEmptyField(entity, "endpoint")
+                && !hasNonEmptyField(entity, "responsesEndpoint")
+                && !hasNonEmptyField(entity, "responses_endpoint")
+                && !hasNonEmptyField(entity, "applicationTypeSchemaId")
+                && !hasNonEmptyField(entity, "application_type_schema_id")
+                && !hasNonEmptyField(entity, "routes")
+                && (mcp == null || !hasNonEmptyField(mcp, "endpoint"));
+    }
+
+    /**
+     * Removes upstreams that the target Core version can't represent once the target schema has stripped them:
+     * <ul>
+     *   <li>an upstream whose only endpoint source was the (0.48.0+) {@code baseUrl}/{@code interfaces}
+     *   pair (Core &lt; 0.48.0) - it would be exported with no endpoint at all and would be invalid for the
+     *   target Core version;</li>
+     *   <li>an upstream whose {@code authType} is {@code CUSTOM_HEADER} (0.50.0+, object form) when the target
+     *   has no {@code UpstreamAuthConfig} (Core &lt; 0.50.0) - it can't be parsed there, and dropping the
+     *   {@code authType} would silently send the key in the wrong header.</li>
+     * </ul>
+     * Mirrors {@link #removeDeploymentsLeftWithoutRouting} one level down, on {@code upstreams} entries of
+     * models and routes rather than on the deployments themselves.
+     */
+    private void removeUnsupportedUpstreams(JsonNode originalNode, JsonNode filteredNode,
+                                            JsonNode schema, String version) {
+        JsonNode definitions = schema.get("definitions");
+        boolean supportsInterfaces = definitions != null && definitions.has(UPSTREAM_INTERFACE_DEFINITION_KEY);
+        boolean supportsAuthConfig = definitions != null && definitions.has(UPSTREAM_AUTH_CONFIG_DEFINITION_KEY);
+        if (supportsInterfaces && supportsAuthConfig) {
+            // Target version supports Upstream.interfaces/baseUrl and Upstream.authType object form - nothing is stripped
+            return;
+        }
+
+        for (String entityType : UPSTREAM_ENTITY_TYPES) {
+            JsonNode originalEntities = originalNode.get(entityType);
+            JsonNode filteredEntities = filteredNode.get(entityType);
+            if (originalEntities == null || !originalEntities.isObject()
+                    || filteredEntities == null || !filteredEntities.isObject()) {
+                continue;
+            }
+
+            Iterator<Map.Entry<String, JsonNode>> entities = originalEntities.properties().iterator();
+            while (entities.hasNext()) {
+                Map.Entry<String, JsonNode> entity = entities.next();
+                String name = entity.getKey();
+                JsonNode filteredEntity = filteredEntities.get(name);
+                if (filteredEntity == null) {
+                    continue;
+                }
+                removeUnsupportedUpstreams(entityType, name, version, supportsInterfaces, supportsAuthConfig,
+                        entity.getValue().get(UPSTREAMS_KEY), filteredEntity.get(UPSTREAMS_KEY));
+            }
+        }
+    }
+
+    private void removeUnsupportedUpstreams(String entityType, String entityName, String version,
+                                            boolean supportsInterfaces, boolean supportsAuthConfig,
+                                            JsonNode originalUpstreams, JsonNode filteredUpstreams) {
+        if (originalUpstreams == null || !originalUpstreams.isArray()
+                || !(filteredUpstreams instanceof ArrayNode filteredArray)
+                || originalUpstreams.size() != filteredArray.size()) {
+            return;
+        }
+
+        for (int i = originalUpstreams.size() - 1; i >= 0; i--) {
+            JsonNode originalUpstream = originalUpstreams.get(i);
+            if (!supportsAuthConfig && hasCustomHeaderAuthType(originalUpstream)) {
+                log.warn("Skipped upstreams[{}] on {} '{}' on export to Core version {}: its authType "
+                                + "'CUSTOM_HEADER' is not supported by the target version",
+                        i, entityType, entityName, version);
+                filteredArray.remove(i);
+                continue;
+            }
+
+            boolean hadBaseUrlOrInterfaces = hasNonEmptyField(originalUpstream, "baseUrl")
+                    || hasNonEmptyField(originalUpstream, "interfaces");
+            if (supportsInterfaces || !hadBaseUrlOrInterfaces) {
+                continue;
+            }
+            JsonNode filteredUpstream = filteredArray.get(i);
+            if (!hasNonEmptyField(filteredUpstream, "endpoint")
+                    && !hasNonEmptyField(filteredUpstream, "responsesEndpoint")) {
+                log.warn("Skipped upstreams[{}] on {} '{}' on export to Core version {}: its only endpoint "
+                                + "configuration is 'baseUrl'/'interfaces', which is not supported by the target version",
+                        i, entityType, entityName, version);
+                filteredArray.remove(i);
+            }
+        }
+    }
+
+    private boolean hasCustomHeaderAuthType(JsonNode upstream) {
+        JsonNode authType = upstream.get("authType");
+        if (authType == null || !authType.isObject()) {
+            return false;
+        }
+        JsonNode type = authType.get("type");
+        return type != null && type.isTextual() && "CUSTOM_HEADER".equalsIgnoreCase(type.asString());
+    }
+
+    private boolean hasNonEmptyField(JsonNode node, String fieldName) {
+        JsonNode field = node.get(fieldName);
+        if (field == null || field.isNull()) {
+            return false;
+        }
+        if (field.isTextual()) {
+            return !field.asString().isBlank();
+        }
+        return !field.isEmpty() || field.isValueNode();
+    }
+
+    /**
+     * Filters a single entity's JsonNode to include only fields defined in the schema for the target Core version.
+     *
+     * @param entityNode The entity node to filter
+     * @param entityType The entity type key in Config (e.g. "applications", "applicationTypeSchemas")
+     * @return Filtered entity node with only schema-defined fields
+     * @throws SchemaValidationException if schema loading or filtering fails
+     */
+    public JsonNode filterEntityNodeForTargetVersion(JsonNode entityNode, String entityType) {
+        String version = coreConfigVersionService.getVersionForExport();
+        try {
+            JsonNode schema = schemaLoader.loadSchema(version);
+
+            ObjectNode configNode = objectMapper.createObjectNode();
+            if (APPLICATION_TYPE_SCHEMAS_KEY.equals(entityType)) {
+                ArrayNode array = objectMapper.createArrayNode();
+                array.add(entityNode);
+                configNode.set(entityType, array);
+            } else {
+                ObjectNode entitiesNode = objectMapper.createObjectNode();
+                entitiesNode.set("__entityKey__", entityNode);
+                configNode.set(entityType, entitiesNode);
+            }
+
+            JsonNode filteredConfig = filterNodeBySchema(configNode, schema);
+
+            JsonNode filteredEntities = filteredConfig.get(entityType);
+            if (filteredEntities == null) {
+                throw new SchemaValidationException(
+                        "Schema for version %s does not define entity type '%s'".formatted(version, entityType));
+            }
+
+            if (APPLICATION_TYPE_SCHEMAS_KEY.equals(entityType)) {
+                return filteredEntities.get(0);
+            } else {
+                JsonNode filtered = filteredEntities.get("__entityKey__");
+                if (filtered == null) {
+                    throw new SchemaValidationException(
+                            "Schema for version %s defines entity type '%s' without patternProperties".formatted(version, entityType));
+                }
+                return filtered;
+            }
+        } catch (SchemaValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to filter entity node for version: {}, entityType: {}", version, entityType, e);
+            throw new SchemaValidationException("Failed to filter entity node for version: %s".formatted(version), e);
+        }
+    }
+
+    /**
+     * Recursively filters a JSON node according to the provided schema.
+     * Only fields defined in the schema will be included in the result.
+     *
+     * @param node   The node to filter
+     * @param schema The schema to filter against
+     * @return A filtered copy of the node
+     */
+    private JsonNode filterNodeBySchema(JsonNode node, JsonNode schema) {
+        if (!node.isObject() || !schema.isObject()) {
+            return node;
+        }
+
+        ObjectNode filteredNode = objectMapper.createObjectNode();
+
+        processSchemaInheritance(node, schema, filteredNode);
+        processSchemaComposition(node, schema, filteredNode);
+        processSchemaReferences(node, schema, filteredNode);
+        processProperties(node, schema, filteredNode);
+
+        return filteredNode;
+    }
+
+    /**
+     * Processes schema inheritance via allOf directive.
+     */
+    private void processSchemaInheritance(JsonNode node, JsonNode schema, ObjectNode filteredNode) {
+        if (!schema.has("allOf")) {
+            return;
+        }
+
+        JsonNode allOf = schema.get("allOf");
+        if (allOf.isArray()) {
+            for (JsonNode parentSchema : allOf) {
+                JsonNode parentFiltered = filterNodeBySchema(node, parentSchema);
+                copyFields(parentFiltered, filteredNode);
+            }
+        }
+    }
+
+    /**
+     * Processes schema composition via oneOf/anyOf directives - e.g. {@code PricingRate}, which can be
+     * either a flat rate or a {@code {test, ifTrue, ifFalse}} decision-tree node. Every branch is filtered
+     * against the same node and the results are merged, the same way {@link #processSchemaInheritance}
+     * merges {@code allOf} branches: a branch whose shape doesn't match the node (e.g. a flat-number branch,
+     * when the node is actually the decision-tree object) simply contributes no fields.
+     */
+    private void processSchemaComposition(JsonNode node, JsonNode schema, ObjectNode filteredNode) {
+        processComposedBranches(node, schema.get("oneOf"), filteredNode);
+        processComposedBranches(node, schema.get("anyOf"), filteredNode);
+    }
+
+    private void processComposedBranches(JsonNode node, JsonNode branches, ObjectNode filteredNode) {
+        if (branches == null || !branches.isArray()) {
+            return;
+        }
+
+        for (JsonNode branchSchema : branches) {
+            JsonNode branchFiltered = filterNodeBySchema(node, branchSchema);
+            copyFields(branchFiltered, filteredNode);
+        }
+    }
+
+    /**
+     * Processes schema references ($ref).
+     */
+    private void processSchemaReferences(JsonNode node, JsonNode schema, ObjectNode filteredNode) {
+        if (!schema.has("$ref")) {
+            return;
+        }
+
+        String ref = schema.get("$ref").asString();
+        if (ref.startsWith("#/definitions/")) {
+            String definitionName = ref.substring("#/definitions/".length());
+            JsonNode rootSchema = findRootSchema(schema);
+            JsonNode definitions = rootSchema.get("definitions");
+            if (definitions != null && definitions.has(definitionName)) {
+                JsonNode refFiltered = filterNodeBySchema(node, definitions.get(definitionName));
+                copyFields(refFiltered, filteredNode);
+            }
+        }
+    }
+
+    /**
+     * Processes direct properties defined in the schema.
+     */
+    private void processProperties(JsonNode node, JsonNode schema, ObjectNode filteredNode) {
+        JsonNode properties = schema.get("properties");
+        if (properties != null && properties.isObject()) {
+            // Create a map of camelCase and snake_case field names to their schema definitions
+            Map<String, JsonNode> fieldSchemaMap = new HashMap<>();
+
+            Iterator<Map.Entry<String, JsonNode>> schemaFields = properties.properties().iterator();
+            while (schemaFields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = schemaFields.next();
+                String schemaFieldName = entry.getKey();
+                JsonNode fieldSchema = entry.getValue();
+                fieldSchemaMap.put(schemaFieldName, fieldSchema);
+
+                String snakeCase = camelToSnakeCase(schemaFieldName);
+                if (!snakeCase.equals(schemaFieldName)) {
+                    fieldSchemaMap.put(snakeCase, fieldSchema);
+                }
+            }
+
+            // Process node fields
+            Iterator<Map.Entry<String, JsonNode>> nodeFields = node.properties().iterator();
+            while (nodeFields.hasNext()) {
+                Map.Entry<String, JsonNode> nodeField = nodeFields.next();
+                String fieldName = nodeField.getKey();
+                JsonNode fieldValue = nodeField.getValue();
+
+                // Check if field exists in schema
+                if (fieldSchemaMap.containsKey(fieldName)) {
+                    JsonNode fieldSchema = fieldSchemaMap.get(fieldName);
+
+                    // Use the original field name from the node for the filtered output
+                    processField(fieldName, fieldValue, fieldSchema, schema, filteredNode);
+                }
+                // Fields not in schema are excluded
+            }
+        }
+    }
+
+    /**
+     * Converts a camelCase string to snake_case.
+     *
+     * @param camel The camelCase string
+     * @return The snake_case version
+     */
+    private String camelToSnakeCase(String camel) {
+        if (camel == null || camel.isEmpty()) {
+            return camel;
+        }
+
+        StringBuilder snake = new StringBuilder();
+        char c = camel.charAt(0);
+        snake.append(Character.toLowerCase(c));
+
+        for (int i = 1; i < camel.length(); i++) {
+            c = camel.charAt(i);
+            if (Character.isUpperCase(c)) {
+                snake.append('_');
+                snake.append(Character.toLowerCase(c));
+            } else {
+                snake.append(c);
+            }
+        }
+
+        return snake.toString();
+    }
+
+    /**
+     * Processes a single field based on its schema.
+     */
+    private void processField(String fieldName, JsonNode fieldValue, JsonNode fieldSchema,
+                              JsonNode parentSchema, ObjectNode filteredNode) {
+
+        // Value of application type schema is stored as JSON string instead of object,
+        // so it needs to be unwrapped from array and wrapped to map - to conform with other entities
+        String appTypeSchemaId = null;
+        if (APPLICATION_TYPE_SCHEMAS_KEY.equals(fieldName)) {
+            JsonNode unwrappedFieldValue = unwrapAppTypeSchemaNode(fieldName, fieldValue, fieldSchema, parentSchema, filteredNode);
+            if (unwrappedFieldValue == null || unwrappedFieldValue.get("$id") == null) {
+                return;
+            }
+            ObjectNode fieldValueWrappedAsMap = objectMapper.createObjectNode();
+            appTypeSchemaId = unwrappedFieldValue.get("$id").asString();
+            fieldValueWrappedAsMap.set(appTypeSchemaId, unwrappedFieldValue);
+            fieldValue = fieldValueWrappedAsMap;
+        }
+
+        if (fieldValue.isArray()) {
+            filteredNode.set(fieldName, filterArrayBySchema(fieldValue, fieldSchema, parentSchema));
+            return;
+        }
+
+        if (!fieldValue.isObject()) {
+            filteredNode.set(fieldName, fieldValue);
+            return;
+        }
+
+        if (fieldSchema.has("properties")) {
+            filteredNode.set(fieldName, filterNodeBySchema(fieldValue, fieldSchema));
+        } else if (fieldSchema.has("patternProperties")) {
+            JsonNode filteredProperties = filterPatternProperties(fieldValue, fieldSchema);
+            if (APPLICATION_TYPE_SCHEMAS_KEY.equals(fieldName)) {
+                // Wrapping application type schema back to array
+                if (filteredNode.get(APPLICATION_TYPE_SCHEMAS_KEY) == null) {
+                    ArrayNode arrayWrapper = objectMapper.createArrayNode();
+                    arrayWrapper.add(filteredProperties.get(appTypeSchemaId));
+                    filteredNode.set(APPLICATION_TYPE_SCHEMAS_KEY, arrayWrapper);
+                } else {
+                    ArrayNode appTypeSchemasArrayNode = (ArrayNode) filteredNode.get(APPLICATION_TYPE_SCHEMAS_KEY);
+                    appTypeSchemasArrayNode.add(filteredProperties.get(appTypeSchemaId));
+                    filteredNode.set(APPLICATION_TYPE_SCHEMAS_KEY, appTypeSchemasArrayNode);
+                }
+            } else {
+                filteredNode.set(fieldName, filteredProperties);
+            }
+        } else if (fieldSchema.has("$ref")) {
+            processFieldReference(fieldName, fieldValue, fieldSchema, parentSchema, filteredNode);
+        } else if (fieldSchema.has("oneOf") || fieldSchema.has("anyOf")) {
+            filteredNode.set(fieldName, filterNodeBySchema(fieldValue, fieldSchema));
+        } else {
+            filteredNode.set(fieldName, fieldValue);
+        }
+    }
+
+    /**
+     * Unwraps application type schema node.
+     */
+    private JsonNode unwrapAppTypeSchemaNode(String fieldName, JsonNode fieldValue, JsonNode fieldSchema,
+                                             JsonNode parentSchema, ObjectNode filteredNode) {
+        if (fieldValue == null) {
+            return null;
+        }
+
+        if (fieldValue.isObject() || !fieldValue.isArray()) {
+            return fieldValue;
+        }
+
+        if (fieldValue.size() >= 1) {
+            Iterator<JsonNode> nodeElements = fieldValue.values().iterator();
+            while (nodeElements.hasNext()) {
+                processField(fieldName, nodeElements.next(), fieldSchema, parentSchema, filteredNode);
+            }
+        }
+
+        return fieldValue;
+    }
+
+    /**
+     * Processes a field that references another schema definition.
+     */
+    private void processFieldReference(String fieldName, JsonNode fieldValue, JsonNode fieldSchema,
+                                       JsonNode parentSchema, ObjectNode filteredNode) {
+        String ref = fieldSchema.get("$ref").asString();
+        if (!ref.startsWith("#/definitions/")) {
+            filteredNode.set(fieldName, fieldValue);
+            return;
+        }
+
+        String definitionName = ref.substring("#/definitions/".length());
+        JsonNode rootSchema = findRootSchema(parentSchema);
+        JsonNode definitions = rootSchema.get("definitions");
+        if (definitions != null && definitions.has(definitionName)) {
+            filteredNode.set(fieldName, filterNodeBySchema(fieldValue, definitions.get(definitionName)));
+        } else {
+            filteredNode.set(fieldName, fieldValue);
+        }
+    }
+
+    /**
+     * Utility method to copy fields from one node to another.
+     */
+    private void copyFields(JsonNode source, ObjectNode target) {
+        if (!source.isObject()) {
+            return;
+        }
+
+        Iterator<Map.Entry<String, JsonNode>> fields = source.properties().iterator();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            target.set(field.getKey(), field.getValue());
+        }
+    }
+
+    /**
+     * Filters a node that follows a pattern property schema.
+     * Used for map-like objects where keys follow a pattern and values follow a schema.
+     *
+     * @param node   The node to filter
+     * @param schema The schema with patternProperties
+     * @return A filtered copy of the node
+     */
+    private JsonNode filterPatternProperties(JsonNode node, JsonNode schema) {
+        ObjectNode filteredNode = objectMapper.createObjectNode();
+        JsonNode patternProperties = schema.get("patternProperties");
+
+        if (patternProperties == null || !patternProperties.isObject()) {
+            return filteredNode;
+        }
+
+        // Get the schema for the pattern (usually there's only one pattern)
+        JsonNode itemSchema = patternProperties.values().iterator().next();
+
+        // Resolve reference if needed
+        itemSchema = resolveSchemaReference(itemSchema, schema);
+
+        // Process each field in the node according to the item schema
+        Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            String key = field.getKey();
+            JsonNode value = field.getValue();
+
+            // Filter the value according to the schema
+            JsonNode filteredValue = filterNodeBySchema(value, itemSchema);
+            filteredNode.set(key, filteredValue);
+        }
+
+        return filteredNode;
+    }
+
+    /**
+     * Filters each element of an array field against its {@code items} schema — e.g. {@code Model.upstreams},
+     * an array of {@code Upstream} objects. An array whose items are primitives (or that declares no
+     * filterable {@code items} schema, such as a plain array of strings) is returned unchanged: there is
+     * nothing to strip from a primitive.
+     */
+    private JsonNode filterArrayBySchema(JsonNode arrayValue, JsonNode fieldSchema, JsonNode parentSchema) {
+        JsonNode itemSchema = fieldSchema.get("items");
+        if (itemSchema == null) {
+            return arrayValue;
+        }
+        itemSchema = resolveSchemaReference(itemSchema, parentSchema);
+        if (!itemSchema.has("properties") && !itemSchema.has("patternProperties")) {
+            return arrayValue;
+        }
+
+        ArrayNode filteredArray = objectMapper.createArrayNode();
+        for (JsonNode element : arrayValue) {
+            filteredArray.add(filterNodeBySchema(element, itemSchema));
+        }
+        return filteredArray;
+    }
+
+    /**
+     * Resolves a schema reference to its definition.
+     *
+     * @param schema       The schema that may contain a reference
+     * @param parentSchema The parent schema for context
+     * @return The resolved schema or the original if no reference exists
+     */
+    private JsonNode resolveSchemaReference(JsonNode schema, JsonNode parentSchema) {
+        if (schema.has("$ref")) {
+            String ref = schema.get("$ref").asString();
+            if (ref.startsWith("#/definitions/")) {
+                String definitionName = ref.substring("#/definitions/".length());
+                JsonNode rootSchema = findRootSchema(parentSchema);
+                JsonNode definitions = rootSchema.get("definitions");
+                if (definitions != null && definitions.has(definitionName)) {
+                    return definitions.get(definitionName);
+                }
+            }
+        }
+        return schema;
+    }
+
+    /**
+     * Finds the root schema that contains definitions.
+     * This is needed for resolving references to definitions.
+     *
+     * @param schema The current schema context
+     * @return The root schema containing definitions
+     */
+    private JsonNode findRootSchema(JsonNode schema) {
+        try {
+            String version = coreConfigVersionService.getVersionForExport();
+            return schemaLoader.loadSchema(version);
+        } catch (Exception e) {
+            log.warn("Failed to load root schema, using current schema", e);
+            return schema;
+        }
+    }
+}

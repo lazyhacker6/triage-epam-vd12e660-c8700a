@@ -1,0 +1,341 @@
+{
+  "models": {
+    "testModel1": {
+      "type": "embedding",
+      "name": "testModel1",
+      "displayName": "Test Model1",
+      "displayVersion": "2.0.0",
+      "interceptors": [
+        "testInterceptor1"
+      ],
+      "author": "test-author",
+      "createdAt": 12345,
+      "updatedAt": 12345,
+      "dependencies": ["dep1", "dep2"],
+      "fieldsHashingOrder": ["prompt", "temperature", "seed", "system"],
+      "interfaces": {
+        "openaiChatCompletions": {"base_url": "https://model.adapter.test.com"},
+        "openaiResponses": {
+          "base_url": "https://model.adapter.test.com",
+          "features": {
+            "reasoning_efforts": []
+          }
+        },
+        "anthropicMessages": {
+          "base_url": "https://model.adapter.test.com",
+          "features": {
+            "rate_endpoint": "https://model.adapter.test.com/rate",
+            "tools_supported": true,
+            "reasoning_efforts": ["low", "medium", "high", "xhigh", "max"]
+          },
+          "override_paths": {
+            "createMessage": "/v1/{overrideName}/messages",
+            "getMessage": "/v1/{overrideName}/messages/{id}"
+          }
+        }
+      },
+      "endpoint": "https://endpoint1/embeddings",
+      "responsesEndpoint": "https://endpoint1/responses",
+      "responsesDefaults": {
+        "field": "skipped-value"
+      }
+    },
+    "testModel2": {
+      "type": "embedding",
+      "name": "testModel2",
+      "displayName": "Test Model2",
+      "displayVersion": "1.0.0",
+      "userRoles": [
+        "testRole1"
+      ],
+      "endpoint": "https://endpoint1/embeddings"
+    }
+  },
+  "applications": {
+    "testApplication1": {
+      "name": "testApplication1",
+      "displayName": "Test Application1",
+      "displayVersion": "2.0.0",
+      "interceptors": [
+        "testInterceptor1"
+      ],
+      "applicationTypeSchemaId": "https://test-schema-id.example",
+      "author": "test-author",
+      "createdAt": 12345,
+      "updatedAt": 12345,
+      "dependencies": ["dep1", "dep2"]
+    },
+    "testApplication2": {
+      "externalServices": {
+        "service1": {
+          "displayName": "Test External Service",
+          "description": "External service description",
+          "authSettings": {
+            "authenticationType": "api_key",
+            "clientId": "external-client-id",
+            "clientSecret": "external-client-secret",
+            "tokenEndpoint": "https://auth.test.com/token",
+            "apiKeyHeader": "X-Api-Key",
+            "tokenEndpointAuthMethod": "CLIENT_SECRET_BASIC"
+          }
+        }
+      },
+      "interfaces": {
+        "openaiChatCompletions": {
+          "base_url": "https://app.adapter.test.com",
+          "features": {
+            "tools_supported": true,
+            "content_parts_supported": true
+          },
+          "override_paths": {
+            "createChatCompletion": "/v1/{overrideName}/chat/completions"
+          }
+        }
+      },
+      "name": "testApplication2",
+      "displayName": "Test Application2",
+      "displayVersion": "1.0.0",
+      "userRoles": [
+        "testRole1"
+      ],
+      "endpoint": "endpoint",
+      "responsesEndpoint": "https://application2/responses",
+      "responsesDefaults": {
+        "field": "skipped-value"
+      },
+      "mcp": {
+        "endpoint": "http://localhost:9876/mcp",
+        "allowedTools": ["classify_text"],
+        "configDelivery": "header",
+        "forwardPerRequestKey": false
+      }
+    }
+  },
+  "roles": {
+    "testRole1": {
+      "description": "test role 1 description",
+      "limits": {
+        "testModel1": {
+          "day": "1"
+        },
+        "testModel2": {},
+        "testApplication1": {},
+        "testApplication2": {}
+      },
+      "share": {
+        "APPLICATION": {
+          "maxAcceptedUsers": 10,
+          "invitationTtl": 120
+        }
+      },
+      "costLimit": {
+        "minute": "111",
+        "day": "222",
+        "week": "333",
+        "month": "9223372036854775807"
+      }
+    },
+    "default": {
+      "description": "test role 1 description",
+      "limits": {
+        "testModel1": {
+          "day": "3"
+        },
+        "testModel2": {},
+        "testApplication1": {},
+        "testApplication2": {}
+      },
+      "share": {},
+      "costLimit": {
+        "minute": "9223372036854775807",
+        "day": "9223372036854775807",
+        "week": "9223372036854775807",
+        "month": "9223372036854775807"
+      }
+    }
+  },
+  "interceptors": {
+    "testInterceptor1": {
+      "interfaces": {
+        "openaiChatCompletions": {"base_url": "https://interceptor.adapter.test.com"}
+      },
+      "name": "testInterceptor1",
+      "displayName": "Test Interceptor1",
+      "endpoint": "https://endpoint.test.com/interceptor",
+      "responsesEndpoint": "https://testInterceptor1/responses",
+      "author": "test-author",
+      "createdAt": 12345,
+      "updatedAt": 12345,
+      "dependencies": ["dep1", "dep2"]
+    },
+    "testInterceptor2": {
+          "name": "testInterceptor2",
+          "displayName": "Test Interceptor2",
+          "endpoint": "https://endpoint.test.com/interceptor2",
+          "author": "test-author",
+          "createdAt": 12345,
+          "updatedAt": 12345,
+          "dependencies": ["dep1", "dep2"]
+        },
+    "testInterceptor3": {
+          "name": "testInterceptor3",
+          "displayName": "Test Interceptor3",
+          "endpoint": "https://endpoint.test.com/interceptor",
+          "author": "test-author",
+          "createdAt": 12345,
+          "updatedAt": 12345,
+          "dependencies": []
+        }
+  },
+  "globalInterceptors": ["testInterceptor2", "testInterceptor1"],
+  "keys": {
+    "testKey1": {
+      "key": "key1",
+      "project": "testProject1",
+      "role": "default",
+      "secured": true,
+      "description": "key description",
+      "projectContactPoint": "test@mail.com",
+      "expiresAt": 253402300799999,
+      "allowedIpAddressRanges": ["198.51.100.14/24", "2002::1234:abcd:ffff:c0a8:101/64"]
+    },
+    "testKey2": {
+      "key": "key2",
+      "project": "testProject2",
+      "role": "testRole1",
+      "secured": true,
+      "description": "key 2 description",
+      "projectContactPoint": "test@mail.com",
+      "expiresAt": 253402300799999
+    }
+  },
+  "applicationTypeSchemas": [
+    {
+      "$id": "https://test-schema-id.example",
+      "dial:applicationTypeEditorUrl": "https://test.com/billings",
+      "dial:applicationTypeViewerUrl": "https://test.com/claims",
+      "dial:applicationTypeDisplayName": "runner display name",
+      "dial:applicationTypeCompletionEndpoint": "https://test.io/openai/deployments/mindmap/chat/completions",
+      "dial:applicationTypeConfigurationEndpoint": "https://test.io/openai/configuration",
+      "dial:applicationTypeRateEndpoint": "https://test.io/openai/rate",
+      "dial:applicationTypeTokenizeEndpoint": "https://test.io/openai/tokenize",
+      "dial:applicationTypeTruncatePromptEndpoint": "https://test.io/openai/truncate",
+      "dial:appendApplicationPropertiesHeader": true,
+      "dial:applicationTypeInterceptors": ["testInterceptor1"],
+      "dial:applicationTypeSchemaEndpoint": "https://test.com/endpoint",
+      "dial:applicationTypeResponsesEndpoint": "https://test.com/responses/endpoint",
+      "dial:applicationTypeMcp": {
+        "dial:endpoint": "http://localhost:9876/mcp",
+        "dial:transport": "HTTP",
+        "dial:allowedTools": ["classify_text"],
+        "dial:mcpConfigDelivery": "META",
+        "dial:forwardPerRequestKey": true
+      },
+      "$defs": {},
+      "properties": {},
+      "required": []
+    }
+  ],
+  "routes": {
+    "test_route1": {
+      "name": "test_route1",
+      "response": {
+        "status": 200,
+        "body": "OK"
+      },
+      "rewritePath": true,
+      "paths": [
+        "/api/v1/",
+        "/service/"
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "upstreams": [
+        {
+          "endpoint": "http://upstream1.example.com",
+          "key": "upstream-key-1",
+          "extraData": "{\"custom\":\"data1\"}",
+          "secretExtraData": "{\"secret\":\"value1\"}",
+          "weight": 1,
+          "tier": 0,
+          "authType": {
+            "type": "custom_header",
+            "headerName": "X-Api-Token"
+          }
+        },
+        {
+          "endpoint": "http://upstream2.example.com",
+          "key": "upstream-key-2",
+          "extraData": "{\"custom\":\"data2\"}",
+          "secretExtraData": "{\"secret\":\"value2\"}",
+          "weight": 2,
+          "tier": 1,
+          "authType": "bearer"
+        }
+      ],
+      "maxRetryAttempts": 3
+    },
+    "test_route2": {
+      "name": "test_route2",
+      "response": {
+        "status": 200,
+        "body": "OK"
+      },
+      "rewritePath": true,
+      "paths": [
+        "/api/v1/",
+        "/service/"
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "upstreams": [
+        {
+          "endpoint": "http://upstream1.example.com",
+          "key": "upstream-key-1",
+          "extraData": "{\"custom\":\"data1\"}",
+          "weight": 1,
+          "tier": 0,
+          "authType": "bearer"
+        },
+        {
+          "endpoint": "http://upstream2.example.com",
+          "key": "upstream-key-2",
+          "extraData": "{\"custom\":\"data2\"}",
+          "weight": 2,
+          "tier": 1,
+          "authType": "api_key"
+        }
+      ],
+      "maxRetryAttempts": 3,
+      "userRoles": [
+        "testRole1"
+      ]
+    }
+  },
+  "toolsets": {
+    "toolset1": {
+      "name": "toolset1",
+      "displayName": "ToolSet1",
+      "userRoles": [],
+      "endpoint": "http://sample-endpoint/api",
+      "transport": "sse",
+      "allowedTools": ["branch", "remote"],
+      "provider": "some-provider",
+      "vendor_website": "https://www.vendorWebsite.com",
+      "forwardAuthToken": true,
+      "authSettings": {
+        "authenticationType": "OAUTH",
+        "clientId": "some-client-id",
+        "clientSecret": "some-client-secret",
+        "authorizationEndpoint": "some-auth-endpoint",
+        "tokenEndpoint": "some-token-endpoint",
+        "tokenEndpointAuthMethod": "CLIENT_SECRET_POST",
+        "dynamicallyRegistered": true
+      }
+    }
+  }
+}

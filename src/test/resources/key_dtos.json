@@ -1,0 +1,18 @@
+[
+  {
+    "name": "testName1",
+    "key": "testKey1",
+    "project": "testProject1",
+    "roles": [
+      "testRole1"
+    ],
+    "secured": true,
+    "description": "key description",
+    "displayName": "key display name",
+    "projectContactPoint": "owner@mail.com",
+    "createdAt": "2025-01-12T01:30:00Z",
+    "expiresAt": "2025-06-12T01:30:00Z",
+    "keyGeneratedAt": "2025-01-12T01:30:00Z",
+    "topics": ["topic1", "topic2"]
+  }
+]

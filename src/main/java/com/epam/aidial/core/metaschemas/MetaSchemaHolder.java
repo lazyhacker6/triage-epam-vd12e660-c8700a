@@ -1,0 +1,55 @@
+package com.epam.aidial.core.metaschemas;
+
+import com.networknt.schema.SchemaRegistryConfig;
+import com.networknt.schema.dialect.Dialect;
+import com.networknt.schema.dialect.Dialects;
+import com.networknt.schema.keyword.NonValidationKeyword;
+import com.networknt.schema.path.PathType;
+import lombok.experimental.UtilityClass;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
+@UtilityClass
+public class MetaSchemaHolder {
+
+    public static final String CUSTOM_APPLICATION_META_SCHEMA_ID = "https://dial.epam.com/application_type_schemas/schema#";
+
+    // networknt 3 reports JSON pointers by default; keep the "$.a.b" paths used by the persisted validity messages
+    public static final SchemaRegistryConfig SCHEMA_REGISTRY_CONFIG = SchemaRegistryConfig.builder().pathType(PathType.LEGACY).build();
+
+    public static String getCustomApplicationMetaSchema() {
+        try (InputStream inputStream = MetaSchemaHolder.class.getClassLoader()
+                .getResourceAsStream("custom-application-schemas/schema")) {
+            assert inputStream != null;
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load custom application meta schema", e);
+        }
+    }
+
+    public static Dialect.Builder getDialectBuilder() {
+        return Dialect.builder(MetaSchemaHolder.CUSTOM_APPLICATION_META_SCHEMA_ID, Dialects.getDraft7())
+                .keyword(new NonValidationKeyword("dial:applicationTypeEditorUrl"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeViewerUrl"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeDisplayName"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeCompletionEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeConfigurationEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeRateEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeTokenizeEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeTruncatePromptEndpoint"))
+                .keyword(new NonValidationKeyword("dial:appendApplicationPropertiesHeader"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeIconUrl"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeRoutes"))
+                .keyword(new NonValidationKeyword("dial:applicationTypePlaybackSupport"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeBucketCopy"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeInterceptors"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeSchemaEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeResponsesEndpoint"))
+                .keyword(new NonValidationKeyword("dial:applicationTypeMcp"))
+                .keyword(new NonValidationKeyword("dial:propertyKind"))
+                .keyword(new NonValidationKeyword("dial:propertyOrder"))
+                .keyword(new NonValidationKeyword("$defs"))
+                .format(new DialFileFormat());
+    }
+}

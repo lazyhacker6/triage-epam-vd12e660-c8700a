@@ -1,0 +1,19 @@
+package com.epam.aidial.cfg.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class MoveFolderRequest {
+    private String oldPath;
+    private String newPath;
+    private boolean overwrite;
+    private List<ResourceType> resourceTypes;
+}

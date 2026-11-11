@@ -1,0 +1,25 @@
+{
+  "routes": {},
+  "models": {},
+  "addons": {},
+  "applications": {},
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {
+    "abc123xyz": {
+      "project": "SampleProject",
+      "secured": true,
+      "roles": [
+        "admin",
+        "user"
+      ]
+    }
+  },
+  "roles": {},
+  "retriableErrorCodes": [],
+  "interceptors": {},
+  "globalInterceptors": [],
+  "applicationTypeSchemas": [],
+  "toolsets": {}
+}

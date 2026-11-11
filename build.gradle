@@ -1,0 +1,259 @@
+buildscript {
+    dependencies {
+        constraints {
+            classpath ('org.apache.commons:commons-lang3:3.18.0') {
+                because("previous versions have vulnerabilities")
+            }
+            // spring-boot-gradle-plugin -> spring-boot-buildpack-platform pulls a vulnerable jackson
+            classpath ('com.fasterxml.jackson.core:jackson-databind:2.22.3') {
+                because("previous versions have vulnerabilities")
+            }
+            classpath ('com.fasterxml.jackson.core:jackson-core:2.22.3') {
+                because("previous versions have vulnerabilities")
+            }
+            // spring-boot-gradle-plugin 4.x uses Jackson 3
+            classpath ('tools.jackson.core:jackson-databind:3.1.7') {
+                because("previous versions have vulnerabilities")
+            }
+            classpath ('tools.jackson.core:jackson-core:3.1.7') {
+                because("previous versions have vulnerabilities")
+            }
+            classpath ('org.apache.httpcomponents.client5:httpclient5:5.6.3') {
+                because("previous versions have vulnerabilities")
+            }
+            classpath ('org.apache.httpcomponents.core5:httpcore5:5.4.3') {
+                because("previous versions have vulnerabilities")
+            }
+            classpath ('org.apache.httpcomponents.core5:httpcore5-h2:5.4.3') {
+                because("previous versions have vulnerabilities")
+            }
+        }
+    }
+}
+
+plugins {
+    id "java"
+    id 'checkstyle'
+    id 'io.freefair.lombok' version '8.0.1'
+    id 'org.springframework.boot' version '4.1.1'
+}
+
+group = 'com.epam.aidial'
+version = "0.0.0"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+bootJar {
+    mainClass = 'com.epam.aidial.cfg.Application'
+    manifest {
+        attributes('Implementation-Title': 'ai-dial-admin-backend',
+                'Implementation-Version': version)
+    }
+}
+
+springBoot {
+    buildInfo()
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+
+    configureEach {
+        exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
+        resolutionStrategy {
+            force 'com.google.code.gson:gson:2.8.9'
+            force 'commons-beanutils:commons-beanutils:1.11.0'
+        }
+    }
+}
+
+checkstyle {
+    toolVersion = "10.25.1"
+    configDirectory = file("$rootProject.projectDir/checkstyle")
+}
+
+checkstyleMain.exclude '**/com/epam/aidial/core**'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
+
+    // https://issues.apache.org/jira/browse/JCLOUDS-1637
+    implementation 'javax.xml.bind:jaxb-api:2.3.1'
+    runtimeOnly 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
+
+    implementation 'org.apache.jclouds:jclouds-allblobstore:2.7.0'
+    implementation 'org.apache.jclouds.api:filesystem:2.6.0'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.23.0'
+    implementation 'com.azure:azure-identity:1.15.3'
+    implementation 'com.azure:azure-identity-extensions:1.2.7'
+    implementation 'com.azure:azure-security-keyvault-secrets:4.8.3'
+    implementation 'org.springframework.vault:spring-vault-core:4.0.3'
+    implementation 'software.amazon.awssdk:secretsmanager:2.30.27'
+    implementation 'com.google.cloud:google-cloud-secretmanager:2.59.0'
+    implementation 'com.google.cloud.sql:postgres-socket-factory:1.28.0'
+    implementation 'com.google.guava:guava:33.7.2-jre'
+    implementation("org.jsoup:jsoup:1.23.2")
+    implementation 'io.modelcontextprotocol.sdk:mcp:2.1.0'
+
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation platform('tools.jackson:jackson-bom:3.1.7') // Spring Boot 4.1.1 manages 3.1.5, which has vulnerabilities
+    implementation 'tools.jackson.core:jackson-databind'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-aspectj'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:5.0.3'
+    implementation 'org.springframework:spring-test'
+    implementation 'com.networknt:json-schema-validator:3.0.6' //TODO: will become transitive dependency of core.config lib
+    implementation 'org.apache.commons:commons-lang3'
+    implementation 'org.apache.commons:commons-collections4:4.5.0-M3'
+    implementation 'commons-validator:commons-validator:1.9.0'
+    implementation 'commons-io:commons-io:2.18.0'
+    implementation 'com.github.f4b6a3:uuid-creator:5.0.0'
+
+    implementation 'org.mapstruct:mapstruct:1.6.0'
+    implementation 'info.picocli:picocli-spring-boot-starter:4.7.6'
+
+    implementation 'com.h2database:h2'
+    implementation 'org.postgresql:postgresql'
+    implementation 'com.microsoft.sqlserver:mssql-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.data:spring-data-envers'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.flywaydb:flyway-sqlserver'
+
+    implementation 'io.fabric8:kubernetes-client:7.5.2'
+
+    implementation 'com.influxdb:influxdb-client-java:7.2.0'
+    implementation 'com.influxdb:influxdb3-java:1.11.0'
+
+    implementation 'org.apache.commons:commons-csv:1.13.0'
+
+    implementation platform('io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.33.1')
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter:2.33.1'
+
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+//    implementation 'io.micrometer:micrometer-registry-otlp'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+
+    implementation('org.springframework.boot:spring-boot-starter-log4j2') {
+        exclude group: 'org.apache.logging.log4j'
+    }
+    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.26.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.26.1'
+    implementation 'org.apache.logging.log4j:log4j-jul:2.26.1'
+    implementation 'io.opentelemetry:opentelemetry-sdk'
+    implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-log4j-appender-2.17:2.33.1-alpha'
+
+    implementation project(':query-language')
+
+    implementation("com.nimbusds:oauth2-oidc-sdk:11.33")
+
+    compileOnly 'org.projectlombok:lombok:1.18.46'
+    annotationProcessor 'org.projectlombok:lombok:1.18.46'
+    annotationProcessor "org.mapstruct:mapstruct-processor:1.6.0"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'org.apache.commons:commons-lang3'
+    testImplementation 'io.jsonwebtoken:jjwt:0.9.1'
+    testImplementation 'net.javacrumbs.json-unit:json-unit-assertj:4.1.0'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    testImplementation 'org.testcontainers:testcontainers-mssqlserver'
+    testImplementation 'org.testcontainers:testcontainers-influxdb'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
+
+    constraints {
+        implementation ('com.fasterxml.jackson.core:jackson-databind:2.22.3') {
+            because("previous versions have vulnerabilities")
+        }
+        implementation ('com.fasterxml.jackson.core:jackson-core:2.22.2') {
+            because("previous versions have vulnerabilities")
+        }
+        implementation ('org.apache.tomcat.embed:tomcat-embed-core:11.0.25') {
+            because("previous versions have vulnerabilities")
+        }
+        implementation("io.grpc:grpc-netty-shaded:1.75.0") {
+            because("previous versions have vulnerabilities")
+        }
+        implementation("io.vertx:vertx-core:4.5.27") {
+            because("previous versions have vulnerabilities")
+        }
+        implementation("io.vertx:vertx-web-client:4.5.27") {
+            because("previous versions have vulnerabilities")
+        }
+        implementation("io.vertx:vertx-web-common:4.5.27") {
+            because("previous versions have vulnerabilities")
+        }
+        implementation("io.vertx:vertx-auth-common:4.5.27") {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('com.google.guava:guava:33.7.2-jre') {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('org.apache.commons:commons-lang3:3.18.0') {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('org.codehaus.plexus:plexus-utils:4.0.3') {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('org.apache.httpcomponents.client5:httpclient5:5.6.3') {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('org.apache.httpcomponents.core5:httpcore5:5.4.3') {
+            because("previous versions have vulnerabilities")
+        }
+        checkstyle ('org.apache.httpcomponents.core5:httpcore5-h2:5.4.3') {
+            because("previous versions have vulnerabilities")
+        }
+    }
+}
+
+test {
+    useJUnitPlatform {
+        excludeTags 'performance'
+    }
+    jvmArgs += '--add-opens=java.base/java.nio=ALL-UNNAMED'
+}
+
+tasks.register('perfTest', Test) {
+    description = 'Runs tests tagged "performance". Not part of the default test suite.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags 'performance'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    jvmArgs += '--add-opens=java.base/java.nio=ALL-UNNAMED'
+    shouldRunAfter test
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += "-Werror"
+}

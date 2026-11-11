@@ -1,0 +1,27 @@
+{
+  "roles": [],
+  "keys": [],
+  "interceptors": [],
+  "applicationRunners": [],
+  "routes": [],
+  "models": [
+    {
+      "importAction": "CREATE",
+      "next": {
+        "isPublic": false,
+        "name": "testModel1",
+        "displayName": "testModel1",
+        "displayVersion": "1.0.0",
+        "interceptors": [
+          "testInterceptor1"
+        ],
+        "author": "test-author",
+        "dependencies": ["dep1", "dep2"],
+        "fieldsHashingOrder": ["prompt", "temperature", "seed", "system"]
+      }
+    }
+  ],
+  "applications": [],
+  "addons": [],
+  "assistants": []
+}

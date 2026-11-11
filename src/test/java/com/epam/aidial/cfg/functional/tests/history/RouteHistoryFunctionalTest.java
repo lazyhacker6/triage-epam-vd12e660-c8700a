@@ -1,0 +1,123 @@
+package com.epam.aidial.cfg.functional.tests.history;
+
+import com.epam.aidial.cfg.dto.ConfigRevisionDto;
+import com.epam.aidial.cfg.dto.LimitDto;
+import com.epam.aidial.cfg.dto.RoleDto;
+import com.epam.aidial.cfg.dto.ShareResourceLimitDto;
+import com.epam.aidial.cfg.dto.route.RouteDto;
+import com.epam.aidial.cfg.exception.EntityNotFoundException;
+import com.epam.aidial.cfg.web.facade.DeploymentFacade;
+import com.epam.aidial.cfg.web.facade.InterceptorFacade;
+import com.epam.aidial.cfg.web.facade.RoleFacade;
+import com.epam.aidial.cfg.web.facade.RouteFacade;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRoleDto;
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRouteDtoWithLimits;
+
+public abstract class RouteHistoryFunctionalTest {
+
+    @Autowired
+    private RoleFacade roleFacade;
+    @Autowired
+    private InterceptorFacade interceptorFacade;
+    @Autowired
+    private RouteFacade routeFacade;
+    @Autowired
+    private DeploymentFacade deploymentFacade;
+    @Autowired
+    private TestHistoryFacade historyFacade;
+
+    private void initRoles() {
+        roleFacade.createRole(createRoleDto("1"));
+        roleFacade.createRole(createRoleDto("2"));
+        roleFacade.createRole(createRoleDto("3"));
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndUpdateRoute() {
+        initRoles();
+
+        // 1 create route1
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        // 2 update route1 description
+        RouteDto updatedRoute = createRouteDtoWithLimits("1");
+        updatedRoute.setDescription("new route description");
+        routeFacade.updateRoute(routeDto.getName(), updatedRoute, "*");
+
+        // verify route1
+        RouteDto actual = routeFacade.getRoute(routeDto.getName());
+        var expected = createRouteDtoWithLimits("1");
+        expected.setDescription("new route description");
+        expected.setDefaultRoleLimit(new LimitDto());
+        expected.setUpstreams(List.of());
+        expected.setOrder(Integer.MAX_VALUE);
+        expected.setMaxRetryAttempts(1);
+        assertRoute(actual, expected);
+
+        // 3 add roles to route1
+        updatedRoute.setDefaultRoleLimit(new LimitDto());
+        updatedRoute.setRoleLimits(Map.of("role2", new LimitDto(), "role3", new LimitDto()));
+        updatedRoute.setUpstreams(List.of());
+        updatedRoute.setOrder(Integer.MAX_VALUE);
+        updatedRoute.setMaxRetryAttempts(1);
+        routeFacade.updateRoute(routeDto.getName(), updatedRoute, "*");
+        actual = routeFacade.getRoute(routeDto.getName());
+        assertRoute(actual, updatedRoute);
+
+        // 4 update route1 role limits
+        LimitDto limitDto = new LimitDto();
+        limitDto.setDay(10L);
+        ShareResourceLimitDto shareResourceLimitDto = new ShareResourceLimitDto();
+        shareResourceLimitDto.setInvitationTtl(20L);
+        updatedRoute.setRoleLimits(Map.of("role3", limitDto));
+        routeFacade.updateRoute(routeDto.getName(), updatedRoute, "*");
+        var actualAtRevision = routeFacade.getRoute(routeDto.getName());
+        assertRoute(actualAtRevision, updatedRoute);
+
+        final Integer revNumberToRollback = CollectionUtils.lastElement(historyFacade.getRevisionsList()).getId();
+
+        // 5 delete role3
+        roleFacade.deleteRole("role3");
+        actual = routeFacade.getRoute(routeDto.getName());
+        Assertions.assertTrue(actual.getRoleLimits().isEmpty());
+
+        // 6 delete route 1
+        routeFacade.deleteRoute(routeDto.getName());
+
+        // 7 create route 2
+        routeFacade.createRoute(createRouteDtoWithLimits("2"));
+
+        // 8 create role3
+        RoleDto role3 = createRoleDto("3");
+        roleFacade.createRole(role3);
+
+        // 9 create route3 with assigned role3
+        routeFacade.createRoute(createRouteDtoWithLimits("3"));
+
+        List<ConfigRevisionDto> revisionsListBeforeRollback = historyFacade.getRevisionsList();
+        historyFacade.rollbackToRevision(revNumberToRollback);
+        List<ConfigRevisionDto> revisionsListAfterRollback = historyFacade.getRevisionsList();
+
+        Assertions.assertEquals(revisionsListBeforeRollback.size() + 1, revisionsListAfterRollback.size());
+
+        Collection<RouteDto> routesAfterRollbackToRevision = routeFacade.getAllRoutes();
+        Assertions.assertEquals(List.of(actualAtRevision), routesAfterRollbackToRevision);
+
+        Assertions.assertThrows(EntityNotFoundException.class, () -> deploymentFacade.ensureExists("route2"));
+        Assertions.assertThrows(EntityNotFoundException.class, () -> deploymentFacade.ensureExists("route3"));
+    }
+
+    private void assertRoute(RouteDto actual, RouteDto expected) {
+        Assertions.assertEquals(expected, actual);
+    }
+}

@@ -1,0 +1,650 @@
+package com.epam.aidial.cfg.functional.tests;
+
+import com.epam.aidial.cfg.client.DeploymentClient;
+import com.epam.aidial.cfg.client.ToolsClient;
+import com.epam.aidial.cfg.client.dto.McpDeploymentInfoDto;
+import com.epam.aidial.cfg.client.dto.ToolSetDataDto;
+import com.epam.aidial.cfg.client.mcp.McpClientFactory;
+import com.epam.aidial.cfg.configuration.JsonMapperConfiguration;
+import com.epam.aidial.cfg.domain.model.ToolSet.Transport;
+import com.epam.aidial.cfg.domain.service.DeploymentManagerService;
+import com.epam.aidial.cfg.dto.AuthenticationTypeDto;
+import com.epam.aidial.cfg.dto.EntitySyncStateDto;
+import com.epam.aidial.cfg.dto.EntitySyncStateStatusDto;
+import com.epam.aidial.cfg.dto.ResourceAuthSettingsDto;
+import com.epam.aidial.cfg.dto.ToolSetDto;
+import com.epam.aidial.cfg.dto.ToolSetDto.TransportDto;
+import com.epam.aidial.cfg.dto.source.ToolSetContainerSourceDto;
+import com.epam.aidial.cfg.dto.source.ToolSetMcpRegistrySourceDto;
+import com.epam.aidial.cfg.exception.EntityNotFoundException;
+import com.epam.aidial.cfg.exception.OptimisticLockConflictException;
+import com.epam.aidial.cfg.service.config.reload.CoreConfigReloadCache;
+import com.epam.aidial.cfg.transaction.timestamp.TransactionTimestampContext;
+import com.epam.aidial.cfg.web.facade.RoleFacade;
+import com.epam.aidial.cfg.web.facade.ToolSetFacade;
+import com.epam.aidial.core.config.CoreToolSet;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.spec.McpSchema;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRoleDto;
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createToolSetDto;
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createToolSetDtoWithoutRoleLimits;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+public abstract class ToolSetFunctionalTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapperConfiguration.createJsonMapper();
+
+    @Autowired
+    private ToolSetFacade toolSetFacade;
+    @Autowired
+    private RoleFacade roleFacade;
+    @Autowired
+    private McpClientFactory mcpClientFactory;
+    @Autowired
+    private DeploymentManagerService deploymentManagerService;
+    @Autowired
+    private DeploymentClient deploymentClient;
+    @Autowired
+    private TransactionTimestampContext transactionTimestampContext;
+    @Autowired
+    private CoreConfigReloadCache coreConfigReloadCache;
+    @Autowired
+    private ToolsClient toolsClient;
+
+    @BeforeEach
+    public void beforeEach() {
+        roleFacade.createRole(createRoleDto("1"));
+        roleFacade.createRole(createRoleDto("2"));
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndGetToolSets() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+        ToolSetDto expected = createToolSetDto("1");
+
+        assertToolSet(actual, expected);
+
+        toolSetFacade.createToolSet(createToolSetDto("2"));
+
+        Collection<ToolSetDto> actualToolSets = toolSetFacade.getAllToolSets();
+
+        assertToolSets(actualToolSets, List.of(createToolSetDto("1"), createToolSetDto("2")));
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndGetToolSetWithAuthStatus() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        var resourceAuthSettingsDto = new com.epam.aidial.cfg.client.dto.ResourceAuthSettingsDto();
+        resourceAuthSettingsDto.setGlobalAuthStatus(com.epam.aidial.cfg.client.dto.ResourceAuthSettingsDto.ResourceAuthStatus.SIGNED_IN);
+        resourceAuthSettingsDto.setUserLevelAuthStatus(com.epam.aidial.cfg.client.dto.ResourceAuthSettingsDto.ResourceAuthStatus.FAILED);
+        resourceAuthSettingsDto.setAppLevelAuthStatus(com.epam.aidial.cfg.client.dto.ResourceAuthSettingsDto.ResourceAuthStatus.SIGNED_OUT);
+
+        ToolSetDataDto toolSetDataDto = ToolSetDataDto.builder()
+                .authSettings(resourceAuthSettingsDto)
+                .build();
+        Mockito.when(deploymentClient.getToolSet(toolSetDto.getName()))
+                .thenReturn(toolSetDataDto);
+
+        ToolSetDto actual = toolSetFacade.getToolSetWithHash(toolSetDto.getName()).dto();
+
+        ResourceAuthSettingsDto expectedAuthSettings = new ResourceAuthSettingsDto();
+        expectedAuthSettings.setGlobalAuthStatus(ResourceAuthSettingsDto.ResourceAuthStatus.SIGNED_IN);
+        expectedAuthSettings.setUserLevelAuthStatus(ResourceAuthSettingsDto.ResourceAuthStatus.FAILED);
+        expectedAuthSettings.setAppLevelAuthStatus(ResourceAuthSettingsDto.ResourceAuthStatus.SIGNED_OUT);
+
+        Assertions.assertEquals(expectedAuthSettings, actual.getAuthSettings());
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndGetToolSetWhenAuthStatusIsUnavailable() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        Mockito.when(deploymentClient.getToolSet(toolSetDto.getName()))
+                .thenThrow(new RuntimeException("ToolSet not found"));
+
+        ToolSetDto actual = toolSetFacade.getToolSetWithHash(toolSetDto.getName()).dto();
+
+        Assertions.assertNull(actual.getAuthSettings());
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateToolSetAndGetDiscoveredTools() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setTransport(TransportDto.HTTP);
+        toolSetFacade.createToolSet(toolSetDto);
+
+        var expectedTools = Mockito.mock(McpSchema.ListToolsResult.class);
+        when(toolsClient.getTools(eq(toolSetDto.getName()), isNull()))
+                .thenReturn(expectedTools);
+
+        var actualTools = toolSetFacade.getDiscoveredTools(toolSetDto.getName(), null);
+
+        Assertions.assertEquals(expectedTools, actualTools);
+
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateToolSetAndCallTool() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setTransport(TransportDto.HTTP);
+        toolSetFacade.createToolSet(toolSetDto);
+
+        var callToolRequest = Mockito.mock(McpSchema.CallToolRequest.class);
+        var expectedCallToolResult = Mockito.mock(McpSchema.CallToolResult.class);
+        var mcpSyncClient = Mockito.mock(McpSyncClient.class);
+        Mockito.when(mcpSyncClient.initialize())
+                .thenReturn(null);
+        Mockito.when(mcpClientFactory.create(eq("http://localhost:8081/v1/toolset/ToolSet1/mcp"),
+                eq(Transport.HTTP), isNull())).thenReturn(mcpSyncClient);
+        Mockito.when(mcpSyncClient.callTool(callToolRequest))
+                .thenReturn(expectedCallToolResult);
+
+        var actualCallToolResult = toolSetFacade.callTool(toolSetDto.getName(), callToolRequest);
+
+        Assertions.assertEquals(expectedCallToolResult, actualCallToolResult);
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndDeleteToolSet() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+        toolSetFacade.deleteToolSet(toolSetDto.getName());
+
+        Assertions.assertThrows(EntityNotFoundException.class, () -> toolSetFacade.getToolSet(toolSetDto.getName()));
+        Assertions.assertTrue(toolSetFacade.getAllToolSets().isEmpty());
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateToolSetWithPkceData() {
+        ResourceAuthSettingsDto resourceAuthSettingsDto = new ResourceAuthSettingsDto();
+        resourceAuthSettingsDto.setAuthenticationType(AuthenticationTypeDto.OAUTH);
+        resourceAuthSettingsDto.setClientId("clientId");
+        resourceAuthSettingsDto.setClientSecret("clientSecret");
+        resourceAuthSettingsDto.setAuthorizationEndpoint("/authorize");
+        resourceAuthSettingsDto.setTokenEndpoint("/token");
+        resourceAuthSettingsDto.setCodeChallengeMethod("S256");
+
+        ToolSetDto toolSetDto = createToolSetDtoWithoutRoleLimits("1");
+        toolSetDto.setAuthSettings(resourceAuthSettingsDto);
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+
+        Assertions.assertNotNull(actual.getAuthSettings().getCodeChallenge());
+        Assertions.assertNotNull(actual.getAuthSettings().getCodeVerifier());
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndUpdateToolSet() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto updatedToolSet = createToolSetDto("1");
+        updatedToolSet.setDescription("New ToolSet description");
+
+        toolSetFacade.updateToolSet(toolSetDto.getName(), updatedToolSet, "*");
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+
+        var expected = createToolSetDto("1");
+        expected.setDescription("New ToolSet description");
+
+        assertToolSet(actual, expected);
+    }
+
+    @Test
+    public void shouldSuccessfullyUpdateToolSetWithPkceData() {
+        ToolSetDto toolSetDto = createToolSetDtoWithoutRoleLimits("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ResourceAuthSettingsDto resourceAuthSettingsDto = new ResourceAuthSettingsDto();
+        resourceAuthSettingsDto.setAuthenticationType(AuthenticationTypeDto.OAUTH);
+        resourceAuthSettingsDto.setClientId("clientId");
+        resourceAuthSettingsDto.setClientSecret("clientSecret");
+        resourceAuthSettingsDto.setAuthorizationEndpoint("/authorize");
+        resourceAuthSettingsDto.setTokenEndpoint("/token");
+        resourceAuthSettingsDto.setCodeChallengeMethod("S256");
+
+        ToolSetDto updatedToolSet = createToolSetDtoWithoutRoleLimits("1");
+        updatedToolSet.setAuthSettings(resourceAuthSettingsDto);
+        toolSetFacade.updateToolSet(updatedToolSet.getName(), updatedToolSet, "*");
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+
+        Assertions.assertNotNull(actual.getAuthSettings().getCodeChallenge());
+        Assertions.assertNotNull(actual.getAuthSettings().getCodeVerifier());
+    }
+
+    @Test
+    public void shouldSuccessfullyUpdateToolSetWithCorrectHash() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDataDto toolSetDataDto = ToolSetDataDto.builder()
+                .authSettings(new com.epam.aidial.cfg.client.dto.ResourceAuthSettingsDto())
+                .build();
+        Mockito.when(deploymentClient.getToolSet(toolSetDto.getName()))
+                .thenReturn(toolSetDataDto);
+        var hash = toolSetFacade.getToolSetWithHash(toolSetDto.getName()).hash();
+
+        ToolSetDto updatedToolSet = createToolSetDto("1");
+        updatedToolSet.setDescription("New ToolSet description");
+
+        toolSetFacade.updateToolSet(toolSetDto.getName(), updatedToolSet, hash);
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+
+        var expected = createToolSetDto("1");
+        expected.setDescription("New ToolSet description");
+
+        assertToolSet(actual, expected);
+    }
+
+    @Test
+    public void shouldThrowWhenUpdateToolSetWithIncorrectHash() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto updatedToolSet = createToolSetDto("1");
+        updatedToolSet.setDescription("New ToolSet description");
+
+        Assertions.assertThrows(OptimisticLockConflictException.class,
+                () -> toolSetFacade.updateToolSet(toolSetDto.getName(), updatedToolSet, "test"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenameToolSet() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+        ToolSetDto updatedToolSet = createToolSetDto("2");
+        updatedToolSet.setDescription("New ToolSet description");
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> toolSetFacade.updateToolSet(toolSetDto.getName(), updatedToolSet, "*")
+        );
+        Assertions.assertEquals("ToolSet with name: 'ToolSet1' can not be renamed. New name: 'ToolSet2'", exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenToolSetConcurrencyOverwrite() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        OptimisticLockConflictException exception = Assertions.assertThrows(
+                OptimisticLockConflictException.class,
+                () -> toolSetFacade.updateToolSet(toolSetDto.getName(), toolSetDto, "test")
+        );
+        Assertions.assertEquals("Unable to update ToolSet 'ToolSet1'. The data may have been modified by another user, "
+                        + "or the name/ID may already exist. Please reload the data and try again.",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenHashIsNull() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> toolSetFacade.updateToolSet(toolSetDto.getName(), toolSetDto, null)
+        );
+        Assertions.assertEquals("Hash must not be null. Use \"*\" to skip optimistic check. ToolSet:ToolSet1.",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenCreateWithNullClientSecretAndOauthAuthType() {
+        ResourceAuthSettingsDto resourceAuthSettingsDto = new ResourceAuthSettingsDto();
+        resourceAuthSettingsDto.setAuthenticationType(AuthenticationTypeDto.OAUTH);
+        resourceAuthSettingsDto.setClientId("clientId");
+        resourceAuthSettingsDto.setClientSecret(null);
+        resourceAuthSettingsDto.setAuthorizationEndpoint("/authorize");
+        resourceAuthSettingsDto.setTokenEndpoint("/token");
+        resourceAuthSettingsDto.setCodeChallengeMethod("S256");
+
+        ToolSetDto toolSetDto = createToolSetDtoWithoutRoleLimits("1");
+        toolSetDto.setAuthSettings(resourceAuthSettingsDto);
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> toolSetFacade.createToolSet(toolSetDto)
+        );
+        Assertions.assertEquals("Client secret: 'null' must not be blank for ToolSet with id:'ToolSet1'",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenUpdateWithEmptyTokenEndpointAndOauthAuthType() {
+        ResourceAuthSettingsDto resourceAuthSettingsDto = new ResourceAuthSettingsDto();
+        resourceAuthSettingsDto.setAuthenticationType(AuthenticationTypeDto.OAUTH);
+        resourceAuthSettingsDto.setClientId("clientId");
+        resourceAuthSettingsDto.setClientSecret("clientSecret");
+        resourceAuthSettingsDto.setAuthorizationEndpoint("/authorize");
+        resourceAuthSettingsDto.setTokenEndpoint("/token");
+        resourceAuthSettingsDto.setCodeChallengeMethod("S256");
+
+        ToolSetDto toolSetDto = createToolSetDtoWithoutRoleLimits("1");
+        toolSetDto.setAuthSettings(resourceAuthSettingsDto);
+        toolSetFacade.createToolSet(toolSetDto);
+
+        resourceAuthSettingsDto.setTokenEndpoint("");
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> toolSetFacade.updateToolSet(toolSetDto.getName(), toolSetDto, "*")
+        );
+        Assertions.assertEquals("Token endpoint: '' must not be blank for ToolSet with id:'ToolSet1'",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldResolveEndpointsForContainerSource() {
+        // Given
+        String containerId = "550e8400-e29b-41d4-a716-446655440000";
+        String containerName = "test-container";
+        String containerUrl = "https://container-url.com";
+        String completionPath = "/api/completion";
+
+        McpDeploymentInfoDto deploymentInfoDto = new McpDeploymentInfoDto();
+        deploymentInfoDto.setTransport(McpDeploymentInfoDto.McpTransport.HTTP_STREAMING);
+        deploymentInfoDto.setId(containerId);
+        deploymentInfoDto.setDisplayName("Test Container");
+        deploymentInfoDto.setUrl(containerUrl);
+
+        Mockito.when(deploymentManagerService.getById(containerId)).thenReturn(deploymentInfoDto);
+
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setName("container-toolset");
+        toolSetDto.setDescription("Container toolset");
+
+        ToolSetContainerSourceDto sourceDto = new ToolSetContainerSourceDto(
+                containerId,
+                containerName,
+                completionPath
+        );
+
+        toolSetDto.setSource(sourceDto);
+
+        // When
+        toolSetFacade.createToolSet(toolSetDto);
+
+        // Then
+        ToolSetDto result = toolSetFacade.getToolSet("container-toolset");
+
+        Assertions.assertEquals(containerUrl + completionPath, result.getEndpoint());
+
+        verify(deploymentManagerService, Mockito.atLeast(2)).getById(containerId);
+    }
+
+    @Test
+    public void shouldRefreshEndpointsForContainerSource() {
+        // Given
+        String deploymentName = "Test Container";
+        String containerId = "550e8400-e29b-41d4-a716-446655440000";
+        String containerName = "test-container";
+        String initialUrl = "https://initial-url.com";
+        String updatedUrl = "https://updated-url.com";
+        String completionPath = "/api/completion";
+        String refreshedToolSetName = "refresh-toolset";
+
+        McpDeploymentInfoDto initialDeploymentInfo = new McpDeploymentInfoDto();
+        initialDeploymentInfo.setId(containerId);
+        initialDeploymentInfo.setDisplayName(deploymentName);
+        initialDeploymentInfo.setUrl(initialUrl);
+        initialDeploymentInfo.setTransport(McpDeploymentInfoDto.McpTransport.HTTP_STREAMING);
+
+        McpDeploymentInfoDto updatedDeploymentInfo = new McpDeploymentInfoDto();
+        updatedDeploymentInfo.setId(containerId);
+        updatedDeploymentInfo.setDisplayName(deploymentName);
+        updatedDeploymentInfo.setUrl(updatedUrl);
+        updatedDeploymentInfo.setTransport(McpDeploymentInfoDto.McpTransport.HTTP_STREAMING);
+
+        Mockito.when(deploymentManagerService.getById(containerId))
+                .thenReturn(initialDeploymentInfo)
+                .thenReturn(initialDeploymentInfo)
+                .thenReturn(updatedDeploymentInfo)
+                .thenReturn(updatedDeploymentInfo);
+
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setName(refreshedToolSetName);
+
+        toolSetDto.setDescription("Refresh toolset");
+
+        ToolSetContainerSourceDto sourceDto = new ToolSetContainerSourceDto(
+                containerId,
+                containerName,
+                completionPath
+        );
+
+        toolSetDto.setSource(sourceDto);
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto initialResult = toolSetFacade.getToolSet(refreshedToolSetName);
+        Assertions.assertEquals(initialUrl + completionPath, initialResult.getEndpoint());
+
+        // When
+        toolSetFacade.refreshEndpoints();
+
+        // Then
+        ToolSetDto refreshedResult = toolSetFacade.getToolSet(refreshedToolSetName);
+        Assertions.assertEquals(updatedUrl + completionPath, refreshedResult.getEndpoint());
+
+        verify(deploymentManagerService, Mockito.atLeast(2)).getById(containerId);
+    }
+
+    @Test
+    public void shouldSaveAndReturnToolSetWithUniqueDescriptionKeywords() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setDescriptionKeywords(new TreeSet<>(Set.of("topic1", "topic3", "topic2")));
+        toolSetFacade.createToolSet(toolSetDto);
+
+        ToolSetDto actual = toolSetFacade.getToolSet(toolSetDto.getName());
+
+        Assertions.assertEquals(new TreeSet<>(Set.of("topic1", "topic2", "topic3")), actual.getDescriptionKeywords());
+    }
+
+    @Test
+    public void shouldSuccessfullyGetCoreToolSet() {
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        CoreToolSet expected = new CoreToolSet();
+        expected.setName(toolSetDto.getName());
+        expected.setAuthSettings(null);
+        expected.setEndpoint(toolSetDto.getEndpoint());
+        expected.setTransport(CoreToolSet.Transport.HTTP);
+        expected.setDisplayName(toolSetDto.getDisplayName());
+        expected.setDescription(toolSetDto.getDescription());
+        expected.setMaxRetryAttempts(toolSetDto.getMaxRetryAttempts());
+        expected.setProvider(toolSetDto.getProvider());
+        expected.setUserRoles(toolSetDto.getRoleLimits().keySet());
+        expected.setVendorWebsite("https://www.vendorWebsite.com");
+
+        CoreToolSet actual = toolSetFacade.getCoreToolSetWithHash(toolSetDto.getName()).core();
+        actual.setCreatedAt(null);
+        actual.setUpdatedAt(null);
+
+        Assertions.assertEquals(expected, actual);
+    }
+
+    @Test
+    public void shouldSuccessfullyGetFullySyncedEntitySyncStateWhenToolSetIsEqualToConfigToolSet() throws JacksonException {
+        doReturn(1000L).when(transactionTimestampContext).getTimestamp();
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        JsonNode config = coreConfig();
+        CoreConfigReloadCache.Entry cacheEntry = new CoreConfigReloadCache.Entry(config, 1000);
+        when(coreConfigReloadCache.get()).thenReturn(cacheEntry);
+
+        JsonNode toolSetState = config.get("toolsets").get("ToolSet1");
+
+        EntitySyncStateDto actualSyncState = toolSetFacade.getSyncState(toolSetDto.getName(), "*");
+
+        assertThat(actualSyncState.getCurrentState()).isEqualTo(toolSetState);
+        assertThat(actualSyncState.getConfigState()).isEqualTo(toolSetState);
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.FULLY_SYNCED);
+    }
+
+    @Test
+    public void shouldSuccessfullyGetInProgressTooLongEntitySyncStateWhenToolSetIsNotEqualToConfigToolSetAndUpdatedLongAgo() throws JacksonException {
+        doReturn(1000L).when(transactionTimestampContext).getTimestamp();
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setDescription("description OLD");
+        toolSetFacade.createToolSet(toolSetDto);
+
+        JsonNode config = coreConfig();
+        CoreConfigReloadCache.Entry cacheEntry = new CoreConfigReloadCache.Entry(config, 122000);
+        when(coreConfigReloadCache.get()).thenReturn(cacheEntry);
+
+        JsonNode configToolSetState = config.get("toolsets").get("ToolSet1");
+        JsonNode currentToolSetState = configToolSetState.deepCopy();
+        ((ObjectNode) currentToolSetState).put("description", "description OLD");
+
+        EntitySyncStateDto actualSyncState = toolSetFacade.getSyncState(toolSetDto.getName(), "*");
+
+        assertThat(actualSyncState.getCurrentState()).isEqualTo(currentToolSetState);
+        assertThat(actualSyncState.getConfigState()).isEqualTo(configToolSetState);
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.IN_PROGRESS_TOO_LONG);
+    }
+
+    @Test
+    public void shouldResetMcpRegistryToNullWhenChangingToolSetSourceFromMcpRegistryToContainer() {
+        // Create a ToolSet with MCP Registry source
+        ToolSetDto toolSetDto = createToolSetDto("1");
+        toolSetDto.setSource(new ToolSetMcpRegistrySourceDto("mcp-server-1", "1.0.0"));
+        toolSetFacade.createToolSet(toolSetDto);
+
+        // Verify the ToolSet has MCP Registry source
+        ToolSetDto actualToolSet = toolSetFacade.getToolSet(toolSetDto.getName());
+        Assertions.assertNotNull(actualToolSet.getSource());
+        Assertions.assertInstanceOf(ToolSetMcpRegistrySourceDto.class, actualToolSet.getSource());
+        ToolSetMcpRegistrySourceDto mcpRegistrySource = (ToolSetMcpRegistrySourceDto) actualToolSet.getSource();
+        Assertions.assertEquals("mcp-server-1", mcpRegistrySource.serverName());
+        Assertions.assertEquals("1.0.0", mcpRegistrySource.serverVersion());
+
+        // Update the ToolSet to Container source
+        String containerId = "container-123";
+        String containerUrl = "https://container-url.com";
+        String completionPath = "/api/completion";
+
+        McpDeploymentInfoDto deploymentInfoDto = new McpDeploymentInfoDto();
+        deploymentInfoDto.setTransport(McpDeploymentInfoDto.McpTransport.HTTP_STREAMING);
+        deploymentInfoDto.setId(containerId);
+        deploymentInfoDto.setDisplayName("Test Container");
+        deploymentInfoDto.setUrl(containerUrl);
+
+        when(deploymentManagerService.getById(containerId)).thenReturn(deploymentInfoDto);
+
+        ToolSetDto updatedToolSet = createToolSetDto("1");
+        updatedToolSet.setSource(new ToolSetContainerSourceDto(containerId, "test-container", completionPath));
+        toolSetFacade.updateToolSet(toolSetDto.getName(), updatedToolSet, "*");
+
+        // Verify the ToolSet now has Container source (not MCP Registry)
+        actualToolSet = toolSetFacade.getToolSet(toolSetDto.getName());
+        Assertions.assertNotNull(actualToolSet.getSource());
+        Assertions.assertInstanceOf(ToolSetContainerSourceDto.class, actualToolSet.getSource());
+        ToolSetContainerSourceDto containerSource = (ToolSetContainerSourceDto) actualToolSet.getSource();
+        Assertions.assertEquals(containerId, containerSource.containerId());
+        Assertions.assertEquals(containerUrl + completionPath, actualToolSet.getEndpoint());
+
+        // Update the ToolSet back to MCP Registry source
+        ToolSetDto revertedToolSet = createToolSetDto("1");
+        revertedToolSet.setSource(new ToolSetMcpRegistrySourceDto("mcp-server-2", "2.0.0"));
+        toolSetFacade.updateToolSet(toolSetDto.getName(), revertedToolSet, "*");
+
+        // Verify the ToolSet now has MCP Registry source again (not Container)
+        actualToolSet = toolSetFacade.getToolSet(toolSetDto.getName());
+        Assertions.assertNotNull(actualToolSet.getSource());
+        Assertions.assertInstanceOf(ToolSetMcpRegistrySourceDto.class, actualToolSet.getSource());
+        ToolSetMcpRegistrySourceDto mcpRegistrySourceAgain = (ToolSetMcpRegistrySourceDto) actualToolSet.getSource();
+        Assertions.assertEquals("mcp-server-2", mcpRegistrySourceAgain.serverName());
+        Assertions.assertEquals("2.0.0", mcpRegistrySourceAgain.serverVersion());
+    }
+
+    private void assertToolSet(ToolSetDto actual, ToolSetDto expected) {
+        Assertions.assertEquals(expected.getName(), actual.getName());
+        Assertions.assertEquals(expected.getDescription(), actual.getDescription());
+        Assertions.assertEquals(expected.getRoleLimits(), actual.getRoleLimits());
+    }
+
+    private void assertToolSets(Collection<ToolSetDto> actual, Collection<ToolSetDto> expected) {
+        Map<String, ToolSetDto> actualMap = toMap(actual);
+        Map<String, ToolSetDto> expectedMap = toMap(expected);
+        Assertions.assertEquals(expectedMap.keySet(), actualMap.keySet());
+        for (String name : actualMap.keySet()) {
+            assertToolSet(actualMap.get(name), expectedMap.get(name));
+        }
+    }
+
+    private Map<String, ToolSetDto> toMap(Collection<ToolSetDto> dtos) {
+        return dtos.stream()
+                .collect(Collectors.toMap(ToolSetDto::getName, Function.identity()));
+    }
+
+    private JsonNode coreConfig() throws JacksonException {
+        String config = """
+                {
+                  "toolsets": {
+                    "ToolSet1": {
+                      "name": "ToolSet1",
+                      "user_roles": [
+                        "role1"
+                      ],
+                      "endpoint": "https://endpoint.test.com/toolset1",
+                      "display_name": "ToolSet1",
+                      "description": "description1",
+                      "forward_auth_token": false,
+                      "defaults": {},
+                      "responses_defaults": {},
+                      "interceptors": [],
+                      "description_keywords": [],
+                      "max_retry_attempts": 1,
+                      "created_at": 1000,
+                      "updated_at": 1000,
+                      "dependencies": [],
+                      "forward_per_request_key": false,
+                      "auth_settings": {
+                        "authentication_type": "NONE"
+                      },
+                      "transport": "HTTP",
+                      "allowed_tools": [],
+                      "provider": "test-provider",
+                      "vendor_website":"https://www.vendorWebsite.com"
+                    }
+                  }
+                }
+                """;
+        return OBJECT_MAPPER.readTree(config);
+    }
+}

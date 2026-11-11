@@ -1,0 +1,596 @@
+{
+	"routes": {
+		"test_route1": {
+			"displayName" : "route1",
+			"deployment": {
+				"name": "test_route1",
+				"isPublic": false,
+				"defaultRoleLimit": {}
+			},
+			"response": {
+				"status": 200,
+				"body": "OK"
+			},
+			"rewritePath": true,
+			"paths": [
+				"/api/v1/",
+				"/service/"
+			],
+			"methods": [
+				"POST",
+				"GET"
+			],
+			"upstreams": [
+				{
+					"endpoint": "http://upstream1.example.com",
+					"responsesEndpoint": "https://endpoint.test.com/responses",
+					"key": "upstream-key-1",
+					"extraData": "{\"custom\":\"data1\"}",
+					"weight": 1,
+					"tier": 0
+				},
+				{
+					"endpoint": "http://upstream2.example.com",
+					"key": "upstream-key-2",
+					"extraData": "{\"custom\":\"data2\"}",
+					"weight": 2,
+					"tier": 1
+				}
+			],
+			"maxRetryAttempts": 3,
+			"topics": ["routeTestRoute1"]
+		}
+	},
+	"applications": {
+		"testApplication1": {
+			"deployment": {
+				"name": "testApplication1",
+				"isPublic": false,
+				"defaultRoleLimit": {}
+			},
+			"displayName": "Test Application1",
+			"displayVersion": "2.0.0",
+			"forwardAuthToken": false,
+			"descriptionKeywords": [],
+			"maxRetryAttempts": 1,
+			"defaults": {},
+			"interceptors": [
+				"testInterceptor1"
+			],
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"applicationProperties": {},
+			"source": {
+				"$type": "schema",
+				"applicationTypeSchemaId": "https://test-schema-id.example"
+			},
+			"viewerUrl": "https://viewer.test.com/app1",
+			"editorUrl": "https://editor.test.com/app1",
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": ["dep1", "dep2"]
+        },
+		"testApplication2": {
+			"deployment": {
+				"name": "testApplication2",
+				"isPublic": false,
+				"defaultRoleLimit": {}
+			},
+			"endpoint": "endpoint",
+			"source": {
+				"$type": "endpoints"
+			},
+			"displayName": "Test Application2",
+			"displayVersion": "1.0.0",
+			"forwardAuthToken": false,
+			"descriptionKeywords": [],
+			"maxRetryAttempts": 1,
+			"defaults": {},
+			"interceptors": [],
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"applicationProperties": {},
+			"routes": [
+				{
+					"deployment": {
+						"name": "route1",
+						"isPublic": false
+					},
+					"description": "some desc",
+					"response": {
+						"status": 200,
+						"body": "success"
+					},
+					"rewritePath": false,
+					"paths": [
+						"/first",
+						"/second"
+					],
+					"methods": [
+						"GET",
+						"POST"
+					],
+					"upstreams": [
+						{
+							"endpoint": "http://sample.com",
+							"responsesEndpoint": "http://sample.com/responses",
+							"key": "someKey",
+							"extraData": {
+								"key1": "val1"
+							},
+							"weight": 1,
+							"tier": 0
+						}
+					],
+					"maxRetryAttempts": 5,
+					"order": 1,
+					"permissions": [
+						"write",
+						"read"
+					],
+					"attachmentPaths": {
+						"requestBody": [
+							"/one",
+							"/two"
+						],
+						"responseBody": [
+							"/three"
+						]
+					}
+				}
+			],
+			"responsesEndpoint": "https://application1/responses",
+			"responsesDefaults": {
+				"field": "skipped-value"
+			},
+			"mcp": {
+				"endpoint": "http://localhost:9876/mcp",
+				"transport": "http",
+				"allowedTools": ["classify_text"],
+				"configDelivery": "header",
+				"forwardPerRequestKey": false
+			}
+		}
+	},
+	"models": {
+		"testModel2": {
+			"deployment": {
+				"name": "testModel2",
+				"isPublic": true,
+				"defaultRoleLimit": {}
+			},
+			"displayName": "Test Model2",
+			"displayVersion": "1.0.0",
+			"forwardAuthToken": false,
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"defaults": {},
+			"topics": [],
+			"maxRetryAttempts": 5,
+			"type": "embedding",
+			"upstreams": [],
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": ["dep1", "dep2"],
+			"fieldsHashingOrder": ["prompt", "temperature", "seed", "system"],
+			"endpoint": "https://endpoint2/embeddings",
+			"responsesEndpoint": "https://endpoint2/responses",
+			"responsesDefaults": {
+				"field": "skipped-value"
+			}
+		},
+		"testModel1": {
+			"deployment": {
+				"name": "testModel1",
+				"isPublic": false,
+				"defaultRoleLimit": {
+					"day": 3
+				}
+			},
+			"displayName": "Test Model1",
+			"displayVersion": "2.0.0",
+			"forwardAuthToken": false,
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"source": {
+                "$type": "adapter",
+				"adapterName": "adapter1",
+				"completionEndpointPath": "embeddings"
+			},
+			"defaults": {},
+			"interceptors": [
+				"testInterceptor1"
+			],
+			"topics": [],
+			"maxRetryAttempts": 5,
+			"type": "embedding",
+			"upstreams": [],
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": ["dep1", "dep2"],
+			"fieldsHashingOrder": ["prompt", "temperature", "seed", "system"]
+		}
+	},
+	"roles": {
+		"default": {
+			"name": "default",
+			"displayName": "default",
+			"limits": [],
+          "costLimit": {
+            "minute": "9223372036854775807",
+            "day": "9223372036854775807",
+            "week": "9223372036854775807",
+            "month": "9223372036854775807"
+          }
+		},
+		"testRole3": {
+			"name": "testRole3",
+			"displayName": "testRole3",
+			"limits": [
+				{
+					"role": "testRole3",
+					"deploymentName": "testModel2",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole3",
+					"deploymentName": "testModel1",
+					"enabled": true,
+					"limit": {}
+				},
+				{
+					"role": "testRole3",
+					"deploymentName": "testApplication1",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole3",
+					"deploymentName": "testApplication2",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole3",
+					"deploymentName": "test_route1",
+					"enabled": false,
+					"limit": {}
+				}
+			],
+			"share": {
+                "APPLICATION": {
+                    "maxAcceptedUsers": 10,
+                    "invitationTtl": 120
+                }
+            },
+			"costLimit": {
+				"minute": "111.222333444",
+				"day": "222",
+				"week": "333",
+				"month": "444"
+			},
+			"topics": ["topicTestRole3"]
+		},
+		"testRole2": {
+			"name": "testRole2",
+			"displayName": "testRole2",
+			"limits": [
+				{
+					"role": "testRole2",
+					"deploymentName": "testModel2",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole2",
+					"deploymentName": "testModel1",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole2",
+					"deploymentName": "testApplication1",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole2",
+					"deploymentName": "testApplication2",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole2",
+					"deploymentName": "test_route1",
+					"enabled": false,
+					"limit": {}
+				}
+			],
+          "costLimit": {
+            "minute": "9223372036854775807",
+            "day": "9223372036854775807",
+            "week": "9223372036854775807",
+            "month": "9223372036854775807"
+          }
+		},
+		"testRole1": {
+			"name": "testRole1",
+			"displayName": "testRole1",
+			"limits": [
+				{
+					"role": "testRole1",
+					"deploymentName": "testModel2",
+					"enabled": false,
+					"limit": {}
+				},
+				{
+					"role": "testRole1",
+					"deploymentName": "testModel1",
+					"enabled": true,
+					"limit": {
+						"day": 1
+					}
+				},
+				{
+					"role": "testRole1",
+					"deploymentName": "testApplication1",
+					"enabled": true,
+					"limit": {}
+				},
+				{
+					"role": "testRole1",
+					"deploymentName": "testApplication2",
+					"enabled": true,
+					"limit": {}
+				},
+				{
+					"role": "testRole1",
+					"deploymentName": "test_route1",
+					"enabled": true,
+					"limit": {}
+				}
+			],
+          "costLimit": {
+            "minute": "9223372036854775807",
+            "day": "9223372036854775807",
+            "week": "9223372036854775807",
+            "month": "9223372036854775807"
+          }
+		}
+	},
+	"keys": {
+		"testKey2": {
+			"name": "testKey2",
+			"displayName": "testKey2",
+			"key": "testKey2",
+			"secured": true,
+			"roles": [
+				"testRole1"
+			],
+			"createdAt": 1746705584619,
+			"keyGeneratedAt": 1746705584619,
+			"topics": ["topicTestKey2"]
+		},
+		"testKey1": {
+			"name": "testKey1",
+			"displayName": "testKey1",
+			"key": "testKey1",
+			"project": "testProject1",
+			"secured": true,
+			"roles": [
+				"testRole1"
+			],
+			"createdAt": 1746705584619,
+			"keyGeneratedAt": 1746705584619
+		}
+	},
+	"applicationRunners": {
+		"https://test-schema-id.example": {
+			"schemaId": "https://test-schema-id.example",
+			"schema": "https://dial.epam.com/application_type_schemas/schema#",
+			"applicationTypeEditorUrl": "https://test.com/billings",
+			"applicationTypeViewerUrl": "https://test.com/claims",
+			"applicationTypeDisplayName": "runner display name",
+			"applicationTypeCompletionEndpoint": "https://test.io/openai/deployments/mindmap/chat/completions",
+			"applicationTypeConfigurationEndpoint": "https://test.io/openai/configuration",
+			"applicationTypeRateEndpoint": "https://test.io/openai/rate",
+			"applicationTypeTokenizeEndpoint": "https://test.io/openai/tokenize",
+			"applicationTypeTruncatePromptEndpoint": "https://test.io/openai/truncate",
+			"applicationTypeSchemaEndpoint": "https://test.com/endpoint",
+			"applicationTypeResponsesEndpoint": "https://test.com/responses/endpoint",
+			"dial:applicationTypeMcp": {
+				"dial:endpoint": "http://localhost:9876/mcp",
+				"dial:transport": "http",
+				"dial:allowedTools": ["classify_text"],
+				"dial:mcpConfigDelivery": "meta",
+				"dial:forwardPerRequestKey": true
+			},
+			"appendApplicationPropertiesHeader": true,
+			"defs": {},
+			"properties": {},
+			"required": [],
+			"applicationTypeRoutes": [
+				{
+					"deployment": {
+						"name": "route1",
+						"isPublic": false
+					},
+					"description": "some desc",
+					"response": {
+						"status": 200,
+						"body": "success"
+					},
+					"rewritePath": false,
+					"paths": [
+						"/first",
+						"/second"
+                	],
+					"methods": [
+						"GET",
+						"POST"
+					],
+					"upstreams": [
+						{
+							"endpoint": "http://sample.com",
+							"responsesEndpoint": "http://sample.com/responses",
+							"key": "someKey",
+							"extraData": {
+								"key1": "val1"
+							},
+							"weight": 1,
+							"tier": 0
+						}
+                	],
+					"maxRetryAttempts": 5,
+					"order": 1,
+					"permissions": [
+						"write",
+						"read"
+					],
+					"attachmentPaths": {
+						"requestBody": [
+							"/one",
+							"/two"
+						],
+						"responseBody": [
+							"/three"
+						]
+					}
+                }
+          	]
+		}
+	},
+	"interceptors": {
+		"testInterceptor1": {
+			"name": "testInterceptor1",
+            "endpoint": "https://endpoint.test.com/interceptor",
+			"forwardAuthToken": false,
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": [],
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"topics": ["topicInterceptor1", "topicInterceptor2"]
+		},
+		"testInterceptor2": {
+			"name": "testInterceptor2",
+			"displayName": "Test Interceptor2",
+			"forwardAuthToken": false,
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": [],
+			"features": {
+				"systemPromptSupported": true,
+				"toolsSupported": false,
+				"seedSupported": false,
+				"urlAttachmentsSupported": false,
+				"folderAttachmentsSupported": false,
+				"allowResume": false,
+				"accessibleByPerRequestKey": true,
+				"contentPartsSupported": false,
+				"temperatureSupported": true,
+				"cacheSupported": false,
+				"autoCachingSupported": true,
+				"consentRequired": false,
+				"parallelToolCallsSupported": true
+			},
+			"source": {
+				"$type": "runner",
+				"runnerName": "testRunner1"
+			}
+		}
+	},
+	"interceptorRunners": {
+		"testRunner1": {
+			"name": "testRunner1",
+			"displayName": "testRunner1",
+			"completionEndpoint": "https://template.test.com/api",
+			"configurationEndpoint": "https://template.test.com/conf",
+			"topics": ["topicTestRunner1"]
+		}
+	},
+	"adapters": {
+		"adapter1": {
+			"name": "adapter1",
+			"displayName": "adapter1",
+			"baseEndpoint": "http://endpoint1/",
+			"description": "test adapter",
+			"author": "test-author",
+			"createdAt": 12345,
+			"updatedAt": 12345,
+			"dependencies": [],
+			"topics": ["topicAdapter1"]
+		}
+	}
+}

@@ -1,0 +1,131 @@
+{
+  "roles": [],
+  "keys": [],
+  "interceptors": [],
+  "globalInterceptors":
+    {
+      "importAction": "update",
+      "next": [],
+      "prev": []
+    },
+  "applicationRunners": [],
+  "routes": [],
+  "adapters": [
+    {
+      "importAction": "create",
+      "next": {
+        "name": "<will be defined during import 0>",
+        "displayName": "<will be defined during import 0>",
+        "baseEndpoint": "http://endpoint2/",
+        "models": [
+          "testModel2"
+        ],
+        "source": {
+          "$type": "endpoints"
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "importAction": "create",
+      "next": {
+        "deployment": {
+          "name": "testModel1",
+          "roleLimits": [],
+          "isPublic": false,
+          "defaultRoleLimit": {}
+        },
+        "displayName": "Test Model1",
+        "displayVersion": "2.0.0",
+        "forwardAuthToken": false,
+        "features": {
+          "systemPromptSupported": true,
+          "toolsSupported": false,
+          "seedSupported": false,
+          "urlAttachmentsSupported": false,
+          "folderAttachmentsSupported": false,
+          "allowResume": false,
+          "accessibleByPerRequestKey": true,
+          "contentPartsSupported": false,
+          "temperatureSupported": true,
+          "cacheSupported": true,
+          "autoCachingSupported": false,
+          "consentRequired": false,
+          "parallelToolCallsSupported": true
+        },
+        "defaults": {},
+        "responsesDefaults": {},
+        "topics": [],
+        "maxRetryAttempts": 5,
+        "author": "test-author",
+        "dependencies": [
+          "dep1",
+          "dep2"
+        ],
+        "type": "embedding",
+        "upstreams": [],
+        "fieldsHashingOrder": [
+          "prompt",
+          "temperature"
+        ],
+        "source": {
+          "$type": "adapter",
+          "adapterName": "adapter1",
+          "completionEndpointPath": "testModel1/embeddings"
+        },
+        "interfaces": {},
+        "defaultHeaders": {}
+      }
+    },
+    {
+      "importAction": "create",
+      "next": {
+        "deployment": {
+          "name": "testModel2",
+          "roleLimits": [],
+          "isPublic": false,
+          "defaultRoleLimit": {}
+        },
+        "displayName": "Test Model2",
+        "displayVersion": "2.0.0",
+        "forwardAuthToken": false,
+        "features": {
+          "systemPromptSupported": true,
+          "toolsSupported": false,
+          "seedSupported": false,
+          "urlAttachmentsSupported": false,
+          "folderAttachmentsSupported": false,
+          "allowResume": false,
+          "accessibleByPerRequestKey": true,
+          "contentPartsSupported": false,
+          "temperatureSupported": true,
+          "cacheSupported": true,
+          "autoCachingSupported": false,
+          "consentRequired": false,
+          "parallelToolCallsSupported": true
+        },
+        "defaults": {},
+        "responsesDefaults": {},
+        "topics": [],
+        "maxRetryAttempts": 5,
+        "author": "test-author",
+        "dependencies": [],
+        "type": "embedding",
+        "upstreams": [],
+        "fieldsHashingOrder": [],
+        "source": {
+          "$type": "adapter",
+          "adapterName": "<will be defined during import 0>",
+          "completionEndpointPath": "testModel2/embeddings"
+        },
+        "interfaces": {},
+        "defaultHeaders": {}
+      }
+    }
+  ],
+  "applications": [],
+  "addons": [],
+  "assistants": [],
+  "toolSets": []
+}

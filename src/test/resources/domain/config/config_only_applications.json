@@ -1,0 +1,146 @@
+{
+  "routes": {},
+  "models": {},
+  "addons": {},
+  "applications": {
+    "sampleDeployment": {
+      "name": "sampleDeployment",
+      "user_roles": [
+        "admin",
+        "user"
+      ],
+      "endpoint": "https://example.com/api",
+      "external_services": {
+        "service1": {
+          "display_name": "Test External Service",
+          "description": "External service description",
+          "auth_settings": {
+            "authentication_type": "api_key",
+            "client_id": "some-client-id",
+            "client_secret": "some-client-secret",
+            "token_endpoint": "https://some-token-endpoint",
+            "api_key_header": "someApiKeyHeader",
+            "token_endpoint_auth_method": "CLIENT_SECRET_BASIC"
+          }
+        }
+      },
+      "interfaces": {
+        "openaiChatCompletions": {
+          "base_url": "https://app.adapter.example.com",
+          "features": {
+            "system_prompt_supported": true,
+            "tools_supported": false,
+            "seed_supported": false,
+            "url_attachments_supported": false,
+            "folder_attachments_supported": false,
+            "allow_resume": true,
+            "accessible_by_per_request_key": true,
+            "content_parts_supported": true,
+            "temperature_supported": true,
+            "parallel_tool_calls_supported": true,
+            "assistant_attachments_in_request_supported": false,
+            "max_tokens_supported": true,
+            "custom_temperature_supported": true,
+            "reasoning_efforts": [],
+            "skills_supported": false
+          },
+          "overridePaths": {
+            "createChatCompletion": "/v1/{overrideName}/chat/completions"
+          },
+          "defaults": {
+            "temperature": 0.5
+          }
+        }
+      },
+      "display_name": "Sample Application",
+      "display_version": "1.0.0",
+      "override_name": "Custom Application Override",
+      "default_headers": {
+        "X-Custom-Header": "custom-value",
+        "X-API-Version": "v1"
+      },
+      "base_url": "https://base.example.com",
+      "icon_url": "https://example.com/icon.png",
+      "viewer_url": "https://viewer.example.com",
+      "editor_url": "https://editor.example.com",
+      "description": "This is a sample application",
+      "intro": "Brief introduction to sample application",
+      "reference": "app-ref-123",
+      "forward_auth_token": true,
+      "features": {
+        "rate_endpoint": "/rate",
+        "tokenize_endpoint": "/tokenize",
+        "truncate_prompt_endpoint": "/truncate",
+        "configuration_endpoint": "/config",
+        "system_prompt_supported": true,
+        "tools_supported": false,
+        "seed_supported": true,
+        "url_attachments_supported": true,
+        "folder_attachments_supported": false,
+        "allow_resume": true,
+        "accessible_by_per_request_key": true,
+        "content_parts_supported": true,
+        "temperature_supported": true,
+        "cache_supported": true,
+        "auto_caching_supported": false,
+        "consent_required": true,
+        "parallel_tool_calls_supported": true,
+        "assistant_attachments_in_request_supported": true,
+        "support_comment_in_rate_response": true,
+        "max_tokens_supported": true,
+        "max_completion_tokens_supported": false,
+        "custom_temperature_supported": true,
+        "reasoning_efforts": ["effort1", "effort2"],
+        "skills_supported": true
+      },
+      "input_attachment_types": [
+        "pdf",
+        "docx"
+      ],
+      "max_input_attachments": 5,
+      "defaults": {
+        "timeout": "30s",
+        "language": "en"
+      },
+      "responses_defaults": {},
+      "interceptors": [
+        "auth",
+        "logging"
+      ],
+      "description_keywords": [
+        "automation",
+        "AI",
+        "tool"
+      ],
+      "max_retry_attempts": 3,
+      "application_properties": {
+        "debug": true,
+        "maxUsers": 1000,
+        "features": {
+          "timestamp": null
+        }
+      },
+      "application_type_schema_id": "https://example.com/schema.json",
+      "author": "test-author",
+      "created_at": 12345,
+      "updated_at": 12345,
+      "dependencies": ["dep1", "dep2"],
+      "catalog_schema_id": "https://test-catalog-schema.example",
+      "catalog_properties": {
+        "category": "AI Application",
+        "vendor": "Test Vendor",
+        "tags": ["automation", "workflow"]
+      }
+    }
+  },
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {},
+  "roles": {},
+  "retriableErrorCodes": [],
+  "interceptors": {},
+  "globalInterceptors": [],
+  "applicationTypeSchemas": [],
+  "toolsets": {}
+}

@@ -1,0 +1,157 @@
+[
+  {
+    "id": 1,
+    "endpoint": "https://example.com/api",
+    "externalServices": {
+      "service1": {
+        "displayName": "Test External Service",
+        "description": "External service description",
+        "authSettings": {
+          "authenticationType": "API_KEY",
+          "clientId": "some-client-id",
+          "clientSecret": "some-client-secret",
+          "tokenEndpoint": "https://some-token-endpoint",
+          "apiKeyHeader": "someApiKeyHeader",
+          "tokenEndpointAuthMethod": "client_secret_basic"
+        }
+      }
+    },
+    "interfaces": {
+      "openaiChatCompletions": {
+        "baseUrl": "https://app.adapter.example.com",
+        "features": {
+          "contentPartsSupported": true,
+          "reasoningEfforts": []
+        },
+        "overridePaths": {
+          "createChatCompletion": "/v1/{overrideName}/chat/completions"
+        },
+        "defaults": {
+          "temperature": 0.5
+        }
+      }
+    },
+    "iconUrl": "https://example.com/icon.png",
+    "viewerUrl": "https://viewer.example.com",
+    "editorUrl": "https://editor.example.com",
+    "reference": "app-ref-123",
+    "description": "This is a sample application",
+    "intro": "Brief introduction to sample application",
+    "displayName": "Sample Application",
+    "displayVersion": "1.0.0",
+    "overrideName": "Custom Application Override",
+    "defaultHeaders": {
+      "X-Custom-Header": "custom-value",
+      "X-API-Version": "v1"
+    },
+    "baseUrl": "https://base.example.com",
+    "inputAttachmentTypes": [
+      "pdf",
+      "docx"
+    ],
+    "maxInputAttachments": 5,
+    "forwardAuthToken": true,
+    "descriptionKeywords": [
+      "AI",
+      "automation",
+      "tool"
+    ],
+    "maxRetryAttempts": 3,
+    "defaults": {
+      "timeout": "30s",
+      "language": "en"
+    },
+    "interceptors": [
+      "auth",
+      "logging"
+    ],
+    "features": {
+      "rateEndpoint": "/rate",
+      "tokenizeEndpoint": "/tokenize",
+      "truncatePromptEndpoint": "/truncate",
+      "configurationEndpoint": "/config",
+      "systemPromptSupported": true,
+      "toolsSupported": false,
+      "seedSupported": true,
+      "urlAttachmentsSupported": true,
+      "folderAttachmentsSupported": false,
+      "allowResume": true,
+      "accessibleByPerRequestKey": true,
+      "contentPartsSupported": true,
+      "temperatureSupported": true,
+      "cacheSupported": true,
+      "autoCachingSupported": false,
+      "consentRequired": true,
+      "parallelToolCallsSupported": true,
+      "assistantAttachmentsInRequestSupported": true,
+      "supportCommentInRateResponse": true,
+      "maxTokensSupported": true,
+      "maxCompletionTokensSupported": false,
+      "customTemperatureSupported": true,
+      "reasoningEfforts": ["effort1", "effort2"],
+      "skillsSupported": true
+    },
+    "applicationProperties": {
+      "debug": true,
+      "maxUsers": 1000,
+      "features": {
+        "timestamp": null
+      }
+    },
+    "source": {
+      "$type": "schema",
+      "applicationTypeSchemaId": "https://example.com/schema.json"
+    },
+    "deployment": {
+      "id": 100,
+      "name": "sampleDeployment",
+      "isPublic": false,
+      "defaultRoleLimit": {
+        "minute": 10,
+        "day": 1000,
+        "week": 5000,
+        "month": 20000,
+        "requestHour": 100,
+        "requestDay": 500
+      },
+      "roleLimits": [
+        {
+          "role": "admin",
+          "deploymentName": "sampleDeployment",
+          "enabled": true,
+          "limit": {
+            "minute": 50,
+            "day": 5000,
+            "week": 20000,
+            "month": 80000,
+            "requestHour": 500,
+            "requestDay": 2000
+          }
+        },
+        {
+          "role": "user",
+          "deploymentName": "sampleDeployment",
+          "enabled": true,
+          "limit": {
+            "minute": 20,
+            "day": 2000,
+            "week": 10000,
+            "month": 40000,
+            "requestHour": 200,
+            "requestDay": 1000
+          }
+        }
+      ]
+    },
+    "author": "test-author",
+    "createdAt": 12345,
+    "updatedAt": 12345,
+    "dependencies": ["dep1", "dep2"],
+    "catalogSchemaId": "https://test-catalog-schema.example",
+    "catalogProperties": {
+      "category": "AI Application",
+      "vendor": "Test Vendor",
+      "tags": ["automation", "workflow"]
+    }
+  }
+]

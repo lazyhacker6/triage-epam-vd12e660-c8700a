@@ -1,0 +1,73 @@
+{
+  "routes": {},
+  "models": {},
+  "addons": {},
+  "applications": {},
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {},
+  "roles": {},
+  "retriableErrorCodes": [],
+  "interceptors": {},
+  "globalInterceptors": [],
+  "applicationTypeSchemas": [],
+  "toolsets": {
+    "sampleDeployment": {
+      "name": "sampleDeployment",
+      "user_roles": [
+        "admin",
+        "user"
+      ],
+      "endpoint": "http://git-mcp-server/call",
+      "icon_url": "https://example.com/icon.png",
+      "display_name": "Sample ToolSet",
+      "description": "Git remote tool set",
+      "intro": "Brief introduction to sample toolset",
+      "vendor_website": "https://www.vendorWebsite.com",
+      "description_keywords": [
+        "git",
+        "MCP",
+        "tool"
+
+      ],
+      "transport": "http",
+      "allowed_tools": ["branch", "remote"],
+      "provider": "github",
+      "max_retry_attempts": 3,
+      "author": "test-author",
+      "created_at": 12345,
+      "updated_at": 12345,
+      "forward_auth_token": true,
+      "defaults": {},
+      "responses_defaults": {},
+      "interceptors": [],
+      "auth_settings": {
+        "authentication_type": "api_key",
+        "client_id": "some-client-id",
+        "client_secret": "some-client-secret",
+        "authorization_endpoint": "https://some-auth-endpoint",
+        "token_endpoint": "https://some-token-endpoint",
+        "redirect_uri": "https://some-redirect-uri",
+        "code_challenge": "someCodeChallenge",
+        "code_challenge_method": "someCodeChallengeMethod",
+        "code_verifier": "someCodeVerifier",
+        "api_key_header": "someApiKeyHeader",
+        "scopes_supported": [
+          "first",
+          "second"
+        ],
+        "token_endpoint_auth_method": "CLIENT_SECRET_BASIC",
+        "dynamically_registered": true
+      },
+      "forward_per_request_key": false,
+      "dependencies": [],
+      "catalog_schema_id": "https://test-catalog-schema.example",
+      "catalog_properties": {
+        "category": "AI ToolSet",
+        "vendor": "Test Vendor",
+        "tags": ["git", "mcp"]
+      }
+    }
+  }
+}

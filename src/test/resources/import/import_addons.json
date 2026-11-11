@@ -1,0 +1,23 @@
+{
+  "models": {},
+  "applications": {},
+  "roles": {},
+  "addons": {
+    "testAddon1": {
+      "name": "testAddon1",
+      "endpoint": "https://endpoint.test.com/embeddings",
+      "iconUrl": "https://test.com/icon",
+      "description": "It is a test Addon",
+      "displayName": "Test Addon1",
+      "forwardAuthToken": false,
+      "author": "test-author",
+      "createdAt": 12345,
+      "updatedAt": 12345,
+      "dependencies": ["dep1", "dep2"]
+    }
+  },
+  "interceptors": {},
+  "keys": {},
+  "applicationTypeSchemas": [],
+  "routes": {}
+}

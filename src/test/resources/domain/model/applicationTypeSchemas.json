@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "schemaId": "schema-123",
+    "schema": "{ \"type\": \"object\", \"properties\": { \"name\": { \"type\": \"string\" } } }",
+    "type": "object",
+    "title": "Sample Schema",
+    "description": "This is a sample application type schema",
+    "applicationTypeEditorUrl": "https://example.com/editor",
+    "applicationTypeViewerUrl": "https://example.com/viewer",
+    "applicationTypeDisplayName": "Sample Application Type",
+    "applicationTypeCompletionEndpoint": "https://example.com/complete",
+    "applicationTypeConfigurationEndpoint": "https://example.com/configuration",
+    "applicationTypeRateEndpoint": "https://example.com/rate",
+    "applicationTypeTokenizeEndpoint": "https://example.com/tokenize",
+    "applicationTypeTruncatePromptEndpoint": "https://example.com/truncate",
+    "applicationTypeSchemaEndpoint": "https://test.com/endpoint",
+    "applicationTypeResponsesEndpoint": "https://test.com/responses/endpoint",
+    "applicationTypeMcp": {
+      "endpoint": "http://localhost:9876/mcp",
+      "transport": "http",
+      "allowedTools": ["classify_text"],
+      "mcpConfigDelivery": "meta",
+      "forwardPerRequestKey": true
+    },
+    "appendApplicationPropertiesHeader": true,
+    "$defs": {
+      "maxLength": 255
+    },
+    "properties": {
+      "id": "123"
+    },
+    "required": [
+      "name",
+      "version"
+    ]
+  }
+]

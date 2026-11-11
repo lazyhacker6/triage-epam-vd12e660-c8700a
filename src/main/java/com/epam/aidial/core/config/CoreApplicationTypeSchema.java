@@ -1,0 +1,145 @@
+package com.epam.aidial.core.config;
+
+import com.epam.aidial.cfg.dto.databind.JsonMapDeserializer;
+import com.epam.aidial.cfg.dto.databind.JsonMapSerializer;
+import com.epam.aidial.cfg.dto.validation.annotation.ApplicationTypeSchema;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.annotation.JsonSerialize;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Data
+@ApplicationTypeSchema
+public class CoreApplicationTypeSchema {
+
+    @JsonProperty("$schema")
+    private String schema;
+
+    @JsonProperty("$id")
+    private String id;
+
+    private CoreType type;
+    private String title;
+    private String description;
+
+    @JsonProperty("dial:applicationTypeEditorUrl")
+    private String applicationTypeEditorUrl;
+
+    @JsonProperty("dial:applicationTypeViewerUrl")
+    private String applicationTypeViewerUrl;
+
+    @JsonProperty("dial:applicationTypeDisplayName")
+    private String applicationTypeDisplayName;
+
+    @JsonProperty("dial:applicationTypeCompletionEndpoint")
+    private String applicationTypeCompletionEndpoint;
+
+    @JsonProperty("dial:applicationTypeConfigurationEndpoint")
+    private String applicationTypeConfigurationEndpoint; // 0.26.0
+
+    @JsonProperty("dial:applicationTypeRateEndpoint")
+    private String applicationTypeRateEndpoint; // 0.26.0
+
+    @JsonProperty("dial:applicationTypeTokenizeEndpoint")
+    private String applicationTypeTokenizeEndpoint; // 0.26.0
+
+    @JsonProperty("dial:applicationTypeTruncatePromptEndpoint")
+    private String applicationTypeTruncatePromptEndpoint; // 0.26.0
+
+    @JsonProperty("dial:appendApplicationPropertiesHeader")
+    private Boolean appendApplicationPropertiesHeader; // 0.26.0
+
+    @JsonProperty("dial:applicationTypeIconUrl")
+    private String applicationTypeIconUrl; // 0.29.0
+
+    @JsonProperty("dial:applicationTypeRoutes")
+    private LinkedHashMap<String, CoreApplicationTypeSchemaRoute> applicationTypeRoutes; // 0.34.0
+
+    @JsonProperty("dial:applicationTypePlaybackSupport")
+    private Boolean applicationTypePlaybackSupport; // 0.34.0
+
+    @JsonProperty("dial:applicationTypeBucketCopy")
+    private CopyAppBucketOptions applicationTypeBucketCopy; // 0.37.0
+
+    @JsonProperty("dial:applicationTypeInterceptors")
+    private List<String> applicationTypeInterceptors; // 0.38.0
+    
+    @JsonProperty("dial:applicationTypeAssistantAttachmentsInRequestSupported")
+    private boolean applicationTypeAssistantAttachmentsInRequestSupported; //0.39.0
+
+    @JsonProperty("dial:applicationTypeSchemaEndpoint")
+    private String applicationTypeSchemaEndpoint; //0.41.0
+
+    @JsonProperty("dial:applicationTypeResponsesEndpoint")
+    private String applicationTypeResponsesEndpoint; //0.42.0
+
+    @JsonProperty("dial:applicationTypeMcp")
+    private ApplicationTypeMcp applicationTypeMcp; //0.42.0
+
+    @JsonProperty("$defs")
+    @JsonSerialize(using = JsonMapSerializer.class)
+    @JsonDeserialize(using = JsonMapDeserializer.class)
+    private Map<String, String> defs;
+
+    @JsonSerialize(using = JsonMapSerializer.class)
+    @JsonDeserialize(using = JsonMapDeserializer.class)
+    private Map<String, String> properties;
+
+    private List<String> required;
+
+    public enum CoreType {
+        @JsonAlias("OBJECT")
+        OBJECT,
+        @JsonAlias("BOOLEAN")
+        BOOLEAN,
+    }
+
+    public enum CopyAppBucketOptions {
+        @JsonAlias("ENABLED")
+        @JsonProperty("ENABLED")
+        ENABLED,
+        @JsonAlias("DISABLED")
+        @JsonProperty("DISABLED")
+        DISABLED,
+    }
+
+    @Data
+    public static class ApplicationTypeMcp {
+        @JsonAlias({"endpoint", "dial:endpoint"})
+        @JsonProperty("dial:endpoint")
+        private String endpoint;
+        @JsonAlias({"transport", "dial:transport"})
+        @JsonProperty("dial:transport")
+        private Transport transport = Transport.HTTP;
+        @JsonAlias({"allowedTools", "allowed_tools", "dial:allowedTools"})
+        @JsonProperty("dial:allowedTools")
+        private List<String> allowedTools;
+        @JsonAlias({"configDelivery", "config_delivery", "dial:mcpConfigDelivery"})
+        @JsonProperty("dial:mcpConfigDelivery")
+        private McpConfigDelivery configDelivery = McpConfigDelivery.META;
+        @JsonAlias({"forwardAuthToken", "forward_auth_token", "dial:forwardPerRequestKey"})
+        @JsonProperty("dial:forwardPerRequestKey")
+        private boolean forwardPerRequestKey = true;
+    }
+
+    public enum McpConfigDelivery {
+        @JsonAlias("HEADER")
+        @JsonProperty("HEADER")
+        HEADER,
+        @JsonAlias("META")
+        @JsonProperty("META")
+        META
+    }
+
+    public enum Transport {
+        @JsonAlias("HTTP")
+        @JsonProperty("HTTP")
+        HTTP
+    }
+
+}

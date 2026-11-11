@@ -1,0 +1,8 @@
+{
+  "oldPath": "public/old/",
+  "newPath": "public/new1/new2",
+  "overwrite": false,
+  "resourceTypes": [
+    "PROMPT"
+  ]
+}

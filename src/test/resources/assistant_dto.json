@@ -1,0 +1,14 @@
+{
+  "name": "test_assistant",
+  "iconUrl": "https://test.com/icon",
+  "description": "It is a test assistant",
+  "displayName": "Test Assistant",
+  "forwardAuthToken": false,
+  "topics": [],
+  "defaults": {},
+  "roleLimits": {},
+  "author": "test-author",
+  "createdAt": "2025-06-01T12:00:00Z",
+  "updatedAt": "2025-06-01T15:30:00Z",
+  "dependencies": ["dep1", "dep2"]
+}

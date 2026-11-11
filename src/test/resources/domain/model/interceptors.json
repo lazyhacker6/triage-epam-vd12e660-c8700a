@@ -1,0 +1,33 @@
+[
+  {
+    "id": 1,
+    "name": "SampleInterceptor",
+    "endpoint": "https://example.com/interceptor",
+    "interfaces": {
+      "openaiChatCompletions": {
+        "baseUrl": "https://interceptor.adapter.example.com",
+        "defaults": {
+          "temperature": 0.5
+        }
+      }
+    },
+    "iconUrl": "https://example.com/icon.png",
+    "description": "This is a sample interceptor",
+    "displayName": "Sample Interceptor",
+    "overrideName": "Custom Interceptor Override",
+    "defaultHeaders": {
+      "X-Interceptor-Header": "interceptor-value"
+    },
+    "baseUrl": null,
+    "forwardAuthToken": true,
+    "entities": [
+      "user",
+      "transaction",
+      "log"
+    ],
+    "author": "test-author",
+    "createdAt": 12345,
+    "updatedAt": 12345,
+    "dependencies": []
+  }
+]

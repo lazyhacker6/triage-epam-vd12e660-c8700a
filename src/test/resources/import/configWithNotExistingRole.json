@@ -1,0 +1,24 @@
+{
+  "models": {
+    "testModel4": {
+      "type": "embedding",
+      "name": "testModel4",
+      "displayName": "Test Model4",
+      "displayVersion": "2.0.0",
+      "userRoles": [
+        "testRole1"
+      ],
+      "endpoint": "https://endpoint1/embeddings"
+    }
+  },
+  "roles": {
+    "default": {
+      "costLimit": {
+        "minute": 9223372036854775807,
+        "day": 9223372036854775807,
+        "week": 9223372036854775807,
+        "month": 9223372036854775807
+      }
+    }
+  }
+}

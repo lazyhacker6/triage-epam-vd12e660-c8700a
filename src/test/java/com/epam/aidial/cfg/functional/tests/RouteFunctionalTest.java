@@ -1,0 +1,364 @@
+package com.epam.aidial.cfg.functional.tests;
+
+import com.epam.aidial.cfg.configuration.JsonMapperConfiguration;
+import com.epam.aidial.cfg.dto.EntitySyncStateDto;
+import com.epam.aidial.cfg.dto.EntitySyncStateStatusDto;
+import com.epam.aidial.cfg.dto.UpstreamAuthConfigDto;
+import com.epam.aidial.cfg.dto.UpstreamAuthTypeDto;
+import com.epam.aidial.cfg.dto.UpstreamDto;
+import com.epam.aidial.cfg.dto.route.RouteDto;
+import com.epam.aidial.cfg.exception.EntityNotFoundException;
+import com.epam.aidial.cfg.exception.OptimisticLockConflictException;
+import com.epam.aidial.cfg.service.config.reload.CoreConfigReloadCache;
+import com.epam.aidial.cfg.web.facade.RoleFacade;
+import com.epam.aidial.cfg.web.facade.RouteFacade;
+import com.epam.aidial.core.config.CoreRoute;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRoleDto;
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRouteDto;
+import static com.epam.aidial.cfg.functional.utils.FunctionalTestHelper.createRouteDtoWithLimits;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+public abstract class RouteFunctionalTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapperConfiguration.createJsonMapper();
+
+    @Autowired
+    private RouteFacade routeFacade;
+    @Autowired
+    private RoleFacade roleFacade;
+    @Autowired
+    private CoreConfigReloadCache coreConfigReloadCache;
+
+    @BeforeEach
+    public void beforeEach() {
+        roleFacade.createRole(createRoleDto("1"));
+        roleFacade.createRole(createRoleDto("2"));
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndGetRoutes() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+
+        routeFacade.createRoute(routeDto);
+
+        RouteDto actual = routeFacade.getRoute(routeDto.getName());
+        RouteDto expected = createRouteDtoWithLimits("1");
+
+        assertRoute(actual, expected);
+
+        routeFacade.createRoute(createRouteDtoWithLimits("2"));
+
+        Collection<RouteDto> actualRoutes = routeFacade.getAllRoutes();
+
+        assertRoutes(actualRoutes, List.of(createRouteDtoWithLimits("1"), createRouteDtoWithLimits("2")));
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndDeleteRoute() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        routeFacade.deleteRoute(routeDto.getName());
+
+        Assertions.assertThrows(EntityNotFoundException.class, () -> routeFacade.getRoute(routeDto.getName()));
+        Assertions.assertTrue(routeFacade.getAllRoutes().isEmpty());
+    }
+
+    @Test
+    public void shouldSuccessfullyCreateAndUpdateRoute() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+        RouteDto updatedRoute = createRouteDtoWithLimits("1");
+        updatedRoute.setDescription("new route description");
+
+        routeFacade.updateRoute(routeDto.getName(), updatedRoute, "*");
+
+        RouteDto actual = routeFacade.getRoute(routeDto.getName());
+        var expected = createRouteDtoWithLimits("1");
+        expected.setDescription("new route description");
+        assertRoute(actual, expected);
+    }
+
+    @Test
+    public void shouldSuccessfullyUpdateRouteWithCorrectHash() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+        RouteDto updatedRoute = createRouteDtoWithLimits("1");
+        updatedRoute.setDescription("new route description");
+
+        var hash = routeFacade.getRouteWithHash(routeDto.getName()).hash();
+
+        routeFacade.updateRoute(routeDto.getName(), updatedRoute, hash);
+
+        RouteDto actual = routeFacade.getRoute(routeDto.getName());
+        var expected = createRouteDtoWithLimits("1");
+        expected.setDescription("new route description");
+        assertRoute(actual, expected);
+    }
+
+    @Test
+    public void shouldThrowWhenUpdateRouteWithIncorrectHash() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        RouteDto updatedRoute = createRouteDtoWithLimits("1");
+        updatedRoute.setDescription("new route description");
+
+        Assertions.assertThrows(OptimisticLockConflictException.class,
+                () -> routeFacade.updateRoute(routeDto.getName(), updatedRoute, "test"));
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRenameRoute() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+        RouteDto updatedRoute = createRouteDtoWithLimits("2");
+        updatedRoute.setDescription("new route description");
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> routeFacade.updateRoute(routeDto.getName(), updatedRoute, "*")
+        );
+        Assertions.assertEquals("Route with name: 'route1' can not be renamed. New name: 'route2'", exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenRouteConcurrencyOverwrite() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        OptimisticLockConflictException exception = Assertions.assertThrows(
+                OptimisticLockConflictException.class,
+                () -> routeFacade.updateRoute(routeDto.getName(), routeDto, "test")
+        );
+        Assertions.assertEquals("Unable to update Route 'route1'. The data may have been modified by another user, "
+                        + "or the name/ID may already exist. Please reload the data and try again.",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenHashIsNull() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> routeFacade.updateRoute(routeDto.getName(), routeDto, null)
+        );
+        Assertions.assertEquals("Hash must not be null. Use \"*\" to skip optimistic check. Route:route1.",
+                exception.getMessage());
+    }
+
+    @Test
+    public void shouldSuccessfullyGetCoreRoute() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeFacade.createRoute(routeDto);
+
+        CoreRoute expected = new CoreRoute();
+        expected.setRewritePath(routeDto.isRewritePath());
+        expected.setName(routeDto.getName());
+        expected.setPaths(null);
+        expected.setUserRoles(routeDto.getRoleLimits().keySet());
+        expected.setPaths(List.of(Pattern.compile("path1")));
+
+        CoreRoute actual = routeFacade.getCoreRouteWithHash(routeDto.getName()).core();
+
+        assertThat(actual)
+                .usingRecursiveComparison()
+                .withComparatorForType(
+                        (Pattern p1, Pattern p2) ->
+                                p1.pattern().equals(p2.pattern()) ? 0 : 1,
+                        Pattern.class)
+                .isEqualTo(expected);
+    }
+
+    @Test
+    public void shouldSuccessfullyGetFullySyncedEntitySyncStateWhenRouteIsEqualToConfigRoute() throws JacksonException {
+        RouteDto routeDto = createRouteDto("1");
+        routeDto.setDescription("description");
+        routeFacade.createRoute(routeDto);
+
+        JsonNode config = coreConfig();
+        CoreConfigReloadCache.Entry cacheEntry = new CoreConfigReloadCache.Entry(config, 1000);
+        when(coreConfigReloadCache.get()).thenReturn(cacheEntry);
+
+        JsonNode routeState = config.get("routes").get("route1");
+
+        EntitySyncStateDto actualSyncState = routeFacade.getSyncState(routeDto.getName(), "*");
+
+        assertThat(actualSyncState.getCurrentState()).isEqualTo(routeState);
+        assertThat(actualSyncState.getConfigState()).isEqualTo(routeState);
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.FULLY_SYNCED);
+    }
+
+    @Test
+    public void shouldSuccessfullyGetInProgressEntitySyncStateWhenRouteIsNotEqualToConfigRoute() throws JacksonException {
+        RouteDto routeDto = createRouteDto("1");
+        routeDto.setRewritePath(true);
+        routeFacade.createRoute(routeDto);
+
+        JsonNode config = coreConfig();
+        CoreConfigReloadCache.Entry cacheEntry = new CoreConfigReloadCache.Entry(config, 1000);
+        when(coreConfigReloadCache.get()).thenReturn(cacheEntry);
+
+        JsonNode configRouteState = config.get("routes").get("route1");
+        JsonNode currentRouteState = configRouteState.deepCopy();
+        ((ObjectNode) currentRouteState).put("rewritePath", true);
+
+        EntitySyncStateDto actualSyncState = routeFacade.getSyncState(routeDto.getName(), "*");
+
+        assertThat(actualSyncState.getCurrentState()).isEqualTo(currentRouteState);
+        assertThat(actualSyncState.getConfigState()).isEqualTo(configRouteState);
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.IN_PROGRESS);
+    }
+
+    @Test
+    public void shouldPersistUpstreamAuthTypeIncludingCustomHeader() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeDto.setUpstreams(List.of(
+                upstream("http://upstream1", "key1", UpstreamAuthConfigDto.customHeader("X-Api-Token")),
+                upstream("http://upstream2", "key2", UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.BEARER)),
+                upstream("http://upstream3", "key3", UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.API_KEY))));
+
+        routeFacade.createRoute(routeDto);
+
+        List<UpstreamDto> actual = routeFacade.getRoute(routeDto.getName()).getUpstreams();
+        assertThat(actual).extracting(UpstreamDto::getAuthType).containsExactly(
+                UpstreamAuthConfigDto.customHeader("X-Api-Token"),
+                UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.BEARER),
+                UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.API_KEY));
+    }
+
+    @Test
+    public void shouldGetFullySyncedEntitySyncStateWhenUpstreamAuthTypesAreInCoreWireFormat() throws JacksonException {
+        RouteDto routeDto = createRouteDto("1");
+        routeDto.setUpstreams(List.of(
+                upstream("http://upstream1", "key1", UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.API_KEY)),
+                upstream("http://upstream2", "key2", UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.BEARER)),
+                upstream("http://upstream3", "key3", UpstreamAuthConfigDto.customHeader("X-Api-Token"))));
+        routeFacade.createRoute(routeDto);
+
+        // Core always writes authType as an object, with headerName explicitly null unless CUSTOM_HEADER
+        JsonNode config = coreConfigWithUpstreams("""
+                [
+                  {"endpoint": "http://upstream1", "weight": 1, "tier": 0,
+                   "authType": {"type": "API_KEY", "headerName": null}},
+                  {"endpoint": "http://upstream2", "weight": 1, "tier": 0,
+                   "authType": {"type": "BEARER", "headerName": null}},
+                  {"endpoint": "http://upstream3", "weight": 1, "tier": 0,
+                   "authType": {"type": "CUSTOM_HEADER", "headerName": "X-Api-Token"}}
+                ]
+                """);
+        when(coreConfigReloadCache.get()).thenReturn(new CoreConfigReloadCache.Entry(config, 1000));
+
+        EntitySyncStateDto actualSyncState = routeFacade.getSyncState(routeDto.getName(), "*");
+
+        assertThat(actualSyncState.getCurrentState()).isEqualTo(config.get("routes").get("route1"));
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.FULLY_SYNCED);
+    }
+
+    @Test
+    public void shouldGetInProgressEntitySyncStateWhenUpstreamAuthTypeDiffersFromCore() throws JacksonException {
+        RouteDto routeDto = createRouteDto("1");
+        routeDto.setUpstreams(List.of(upstream("http://upstream1", "key1", UpstreamAuthConfigDto.of(UpstreamAuthTypeDto.BEARER))));
+        routeFacade.createRoute(routeDto);
+
+        JsonNode config = coreConfigWithUpstreams("""
+                [
+                  {"endpoint": "http://upstream1", "weight": 1, "tier": 0,
+                   "authType": {"type": "API_KEY", "headerName": null}}
+                ]
+                """);
+        when(coreConfigReloadCache.get()).thenReturn(new CoreConfigReloadCache.Entry(config, 1000));
+
+        EntitySyncStateDto actualSyncState = routeFacade.getSyncState(routeDto.getName(), "*");
+
+        assertThat(actualSyncState.getStatus()).isEqualTo(EntitySyncStateStatusDto.IN_PROGRESS);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenUpstreamWithCustomHeaderHasNoKey() {
+        RouteDto routeDto = createRouteDtoWithLimits("1");
+        routeDto.setUpstreams(List.of(
+                upstream("http://upstream1", null, UpstreamAuthConfigDto.customHeader("X-Api-Token"))));
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> routeFacade.createRoute(routeDto));
+    }
+
+    private static UpstreamDto upstream(String endpoint, String key, UpstreamAuthConfigDto authType) {
+        UpstreamDto upstream = new UpstreamDto();
+        upstream.setEndpoint(endpoint);
+        upstream.setKey(key);
+        upstream.setAuthType(authType);
+        return upstream;
+    }
+
+    private void assertRoute(RouteDto actual, RouteDto expected) {
+        Assertions.assertEquals(expected.getName(), actual.getName());
+        Assertions.assertEquals(expected.getDescription(), actual.getDescription());
+        Assertions.assertEquals(expected.getRoleLimits(), actual.getRoleLimits());
+        Assertions.assertEquals(expected.getTopics(), actual.getTopics());
+    }
+
+    private void assertRoutes(Collection<RouteDto> actual, Collection<RouteDto> expected) {
+        Map<String, RouteDto> actualMap = toMap(actual);
+        Map<String, RouteDto> expectedMap = toMap(expected);
+        Assertions.assertEquals(expectedMap.keySet(), actualMap.keySet());
+        for (String name : actualMap.keySet()) {
+            assertRoute(actualMap.get(name), expectedMap.get(name));
+        }
+    }
+
+    private Map<String, RouteDto> toMap(Collection<RouteDto> dtos) {
+        return dtos.stream()
+                .collect(Collectors.toMap(RouteDto::getName, Function.identity()));
+    }
+
+    private JsonNode coreConfigWithUpstreams(String upstreams) throws JacksonException {
+        JsonNode config = coreConfig();
+        ((ObjectNode) config.get("routes").get("route1")).set("upstreams", OBJECT_MAPPER.readTree(upstreams));
+        return config;
+    }
+
+    private JsonNode coreConfig() throws JacksonException {
+        String config = """
+                {
+                  "routes": {
+                    "route1": {
+                      "name": "route1",
+                      "userRoles": [],
+                      "rewritePath": false,
+                      "paths": ["path1"],
+                      "methods": [],
+                      "upstreams": [],
+                      "maxRetryAttempts": 1,
+                      "order": 2147483647,
+                      "permissions": [],
+                      "attachmentPaths": {
+                        "requestBody": [],
+                        "responseBody": []
+                      }
+                    }
+                  }
+                }
+                """;
+        return OBJECT_MAPPER.readTree(config);
+    }
+}

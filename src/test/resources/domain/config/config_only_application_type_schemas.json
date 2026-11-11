@@ -1,0 +1,53 @@
+{
+  "routes": {},
+  "models": {},
+  "addons": {},
+  "applications": {},
+  "assistant": {
+    "assistants": {}
+  },
+  "keys": {},
+  "roles": {},
+  "retriableErrorCodes": [],
+  "interceptors": {},
+  "applicationTypeSchemas": [
+    {
+      "description": "This is a sample application type schema",
+      "title": "Sample Schema",
+      "type": "object",
+      "properties": {
+        "id": "123"
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "$schema": "{ \"type\": \"object\", \"properties\": { \"name\": { \"type\": \"string\" } } }",
+      "$id": "schema-123",
+      "dial:applicationTypeEditorUrl": "https://example.com/editor",
+      "dial:applicationTypeViewerUrl": "https://example.com/viewer",
+      "dial:applicationTypeDisplayName": "Sample Application Type",
+      "dial:applicationTypeCompletionEndpoint": "https://example.com/complete",
+      "dial:applicationTypeConfigurationEndpoint": "https://example.com/configuration",
+      "dial:applicationTypeRateEndpoint": "https://example.com/rate",
+      "dial:applicationTypeTokenizeEndpoint": "https://example.com/tokenize",
+      "dial:applicationTypeTruncatePromptEndpoint": "https://example.com/truncate",
+      "dial:appendApplicationPropertiesHeader": true,
+      "dial:applicationTypeAssistantAttachmentsInRequestSupported": false,
+      "dial:applicationTypeSchemaEndpoint": "https://test.com/endpoint",
+      "dial:applicationTypeResponsesEndpoint": "https://test.com/responses/endpoint",
+      "dial:applicationTypeMcp": {
+        "dial:endpoint": "http://localhost:9876/mcp",
+        "dial:transport": "HTTP",
+        "dial:allowedTools": ["classify_text"],
+        "dial:mcpConfigDelivery": "META",
+        "dial:forwardPerRequestKey": true
+      },
+      "$defs": {
+        "maxLength": 255
+      }
+    }
+  ],
+  "globalInterceptors": [],
+  "toolsets": {}
+}

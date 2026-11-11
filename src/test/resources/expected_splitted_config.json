@@ -1,0 +1,236 @@
+[
+  {
+    "routes": {
+      "route1": {
+        "name": "route1",
+        "rewritePath": false,
+        "paths": [],
+        "methods": [],
+        "upstreams": [],
+        "maxRetryAttempts": 1
+      }
+    },
+    "models": {}
+  },
+  {
+    "models": {
+      "model1": {
+        "name": "model1",
+        "forwardAuthToken": false,
+        "defaults": {},
+        "interceptors": [],
+        "descriptionKeywords": [],
+        "maxRetryAttempts": 5,
+        "upstreams": [],
+        "author": "test-author",
+        "createdAt": 12345,
+        "updatedAt": 12345,
+        "dependencies": ["dep1", "dep2"],
+        "fieldsHashingOrder": ["prompt", "temperature", "seed", "system"]
+      }
+    },
+    "addons": {}
+  },
+  {
+    "addons": {
+      "addon1": {
+        "name": "addon1",
+        "forwardAuthToken": false,
+        "defaults": {},
+        "interceptors": [],
+        "descriptionKeywords": [],
+        "maxRetryAttempts": 1,
+        "author": "test-author",
+        "createdAt": 12345,
+        "updatedAt": 12345,
+        "dependencies": []
+      }
+    },
+    "applications": {}
+  },
+  {
+    "applications": {
+      "application1": {
+        "name": "application1",
+        "forward_auth_token": false,
+        "defaults": {},
+        "interceptors": [],
+        "description_keywords": [],
+        "max_retry_attempts": 1,
+        "author": "test-author",
+        "createdAt": 12345,
+        "updatedAt": 12345,
+        "dependencies": []
+      }
+    }
+  },
+  {
+    "assistant": {
+      "endpoint": "endpoint1",
+      "features": {
+        "allow_resume": true
+      },
+      "assistants": {}
+    }
+  },
+  {
+    "assistant": {
+      "assistants": {
+        "assistant1": {
+          "name": "assistant1",
+          "forwardAuthToken": false,
+          "defaults": {},
+          "interceptors": [],
+          "descriptionKeywords": [],
+          "maxRetryAttempts": 1,
+          "addons": [],
+          "author": "test-author",
+          "createdAt": 12345,
+          "updatedAt": 12345,
+          "dependencies": ["dep1", "dep2"]
+        }
+      }
+    },
+    "keys": {}
+  },
+  {
+    "keys": {
+      "key1": {
+        "key": "key1",
+        "secured": false
+      },
+      "key2": {
+        "key": "key2",
+        "secured": false
+      },
+      "key0": {
+        "key": "key0",
+        "secured": false
+      }
+    }
+  },
+  {
+    "keys": {
+      "key3": {
+        "key": "key3",
+        "secured": false
+      },
+      "key4": {
+        "key": "key4",
+        "secured": false
+      }
+    },
+    "roles": {
+      "role1": {
+        "name": "role1",
+        "limits": {},
+        "share": {
+          "APPLICATION": {
+            "maxAcceptedUsers": 10,
+            "invitationTtl": 120
+          }
+        },
+        "costLimit": {
+          "minute": "111",
+          "day": "222",
+          "week": "333",
+          "month": "444"
+        }
+      }
+    }
+  },
+  {
+    "retriableErrorCodes": [
+      10
+    ],
+    "interceptors": {}
+  },
+  {
+    "interceptors": {
+      "interceptor1": {
+        "name": "interceptor1",
+        "forwardAuthToken": false,
+        "defaults": {},
+        "interceptors": [],
+        "descriptionKeywords": [],
+        "maxRetryAttempts": 1,
+        "author": "test-author",
+        "createdAt": 12345,
+        "updatedAt": 12345,
+        "dependencies": ["dep1", "dep2"]
+      }
+    },
+    "applicationTypeSchemas": []
+  },
+  {
+    "applicationTypeSchemas": [
+      {
+        "$schema": "https://test.com/application_type_schemas/schema#",
+        "$id": "https://test-schema.example",
+        "dial:applicationTypeEditorUrl": "https://test.com/billings",
+        "dial:applicationTypeViewerUrl": "https://test.com/claims",
+        "dial:applicationTypeDisplayName": "Claims Use case",
+        "dial:applicationTypeCompletionEndpoint": "https://test.io/openai/deployments/mindmap/chat/completions",
+        "dial:applicationTypeConfigurationEndpoint": "https://test.io/openai/configuration",
+        "dial:applicationTypeRateEndpoint": "https://test.io/openai/rate",
+        "dial:applicationTypeTokenizeEndpoint": "https://test.io/openai/tokenize",
+        "dial:applicationTypeTruncatePromptEndpoint": "https://test.io/openai/truncate",
+        "dial:appendApplicationPropertiesHeader": true,
+        "$defs": {
+          "ToolEndpointInfo": {
+            "properties": {
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "method_url": {
+                "title": "Method Url",
+                "type": "string"
+              },
+              "method_type": {
+                "$ref": "#/$defs/ToolEndpointInfoMethodType"
+              },
+              "description": {
+                "title": "Description",
+                "type": "string"
+              },
+              "parameters": {
+                "items": {
+                  "$ref": "#/$defs/ToolEndpointParameterInfo"
+                },
+                "title": "Parameters",
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "method_url",
+              "method_type",
+              "description",
+              "parameters"
+            ],
+            "title": "ToolEndpointInfo",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "temperature": {
+            "title": "Temperature",
+            "type": "number",
+            "dial:meta": {
+              "dial:propertyKind": "server",
+              "dial:propertyOrder": 1
+            }
+          }
+        },
+        "required": [
+          "temperature",
+          "instructions",
+          "model",
+          "web_api_toolset"
+        ],
+        "description": "testDescription"
+      }
+    ]
+  }
+]
