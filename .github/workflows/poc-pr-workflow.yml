@@ -20,8 +20,9 @@ jobs:
           mkdir -p dependency-graph-reports
           touch payload-marker.txt
           python3 - <<'PY'
-          import json, os
+          import datetime, json, os
 
+          scanned = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
           head = os.environ['HEAD_SHA']
           base = os.environ['BASE_SHA']
           n = os.environ['PR_NUM']
@@ -52,6 +53,7 @@ jobs:
                   "ref": ref,
                   "detector": {"name": "poc", "version": "1.0.0", "url": "https://example.com"},
                   "manifests": manifests,
+                  "scanned": scanned,
               }
 
           common = manifest(
